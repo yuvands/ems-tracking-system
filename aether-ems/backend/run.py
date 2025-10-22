@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from config import Config
+import datetime
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -41,18 +42,12 @@ class Hospital(db.Model):
             'id': self.hospital_id,
             'name': self.name,
             'address': self.address,
-            'latitude': str(self.latitude),
-            'longitude': str(self.longitude),
+            'latitude': str(self.latitude) if self.latitude else None,
+            'longitude': str(self.longitude) if self.longitude else None,
             'er_capacity': self.er_capacity,
             'er_current_occupancy': self.er_current_occupancy
         }
 
-# ... (all your other models are here) ...
-
-# --- ADD THIS NEW MODEL ---
-# ... (all your other models are here) ...
-
-# --- ADD THIS NEW MODEL ---
 class User(db.Model):
     __tablename__ = 'users'
     user_id = db.Column(db.Integer, primary_key=True)
@@ -68,6 +63,115 @@ class User(db.Model):
             'full_name': self.full_name,
             'role': self.role
         }
+
+class Patient(db.Model):
+    __tablename__ = 'patients'
+    patient_id = db.Column(db.Integer, primary_key=True)
+    full_name = db.Column(db.String(100))
+    dob = db.Column(db.Date)
+    blood_type = db.Column(db.String(5))
+
+    def to_dict(self):
+        return {
+            'id': self.patient_id,
+            'full_name': self.full_name,
+            'dob': str(self.dob) if self.dob else None,
+            'blood_type': self.blood_type
+        }
+
+class Incident(db.Model):
+    __tablename__ = 'incidents'
+    incident_id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patients.patient_id'))
+    dispatcher_id = db.Column(db.Integer, db.ForeignKey('users.user_id'))
+    ambulance_id = db.Column(db.Integer, db.ForeignKey('ambulances.ambulance_id'))
+    destination_hospital_id = db.Column(db.Integer, db.ForeignKey('hospitals.hospital_id'))
+    location_lat = db.Column(db.DECIMAL(10, 8), nullable=False)
+    location_lon = db.Column(db.DECIMAL(11, 8), nullable=False)
+    location_description = db.Column(db.Text)
+    incident_time = db.Column(db.TIMESTAMP, server_default=db.func.now())
+    status = db.Column(db.String(50), nullable=False, default='active')
+
+    def to_dict(self):
+        return {
+            'id': self.incident_id,
+            'patient_id': self.patient_id,
+            'dispatcher_id': self.dispatcher_id,
+            'ambulance_id': self.ambulance_id,
+            'destination_hospital_id': self.destination_hospital_id,
+            'latitude': str(self.location_lat) if self.location_lat else None,
+            'longitude': str(self.location_lon) if self.location_lon else None,
+            'description': self.location_description,
+            'incident_time': self.incident_time.isoformat() if self.incident_time else None,
+            'status': self.status
+        }
+
+class PatientVitalsLog(db.Model):
+    __tablename__ = 'patient_vitals_log'
+    log_id = db.Column(db.BigInteger, primary_key=True)
+    incident_id = db.Column(db.Integer, db.ForeignKey('incidents.incident_id'), nullable=False)
+    timestamp = db.Column(db.TIMESTAMP, server_default=db.func.now())
+    heart_rate = db.Column(db.Integer)
+    blood_pressure_systolic = db.Column(db.Integer)
+    blood_pressure_diastolic = db.Column(db.Integer)
+    oxygen_saturation = db.Column(db.DECIMAL(5, 2))
+
+    def to_dict(self):
+        return {
+            'log_id': self.log_id,
+            'incident_id': self.incident_id,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
+            'heart_rate': self.heart_rate,
+            'blood_pressure_systolic': self.blood_pressure_systolic,
+            'blood_pressure_diastolic': self.blood_pressure_diastolic,
+            'oxygen_saturation': str(self.oxygen_saturation) if self.oxygen_saturation else None
+        }
+
+class Staff(db.Model):
+    __tablename__ = 'staff'
+    staff_id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False, unique=True)
+    certification_level = db.Column(db.String(50))
+    assigned_ambulance_id = db.Column(db.Integer, db.ForeignKey('ambulances.ambulance_id'))
+
+    def to_dict(self):
+        return {
+            'staff_id': self.staff_id,
+            'user_id': self.user_id,
+            'certification_level': self.certification_level,
+            'assigned_ambulance_id': self.assigned_ambulance_id
+        }
+
+class Equipment(db.Model):
+    __tablename__ = 'equipment'
+    equipment_id = db.Column(db.Integer, primary_key=True)
+    ambulance_id = db.Column(db.Integer, db.ForeignKey('ambulances.ambulance_id'), nullable=False)
+    equipment_name = db.Column(db.String(100), nullable=False)
+    status = db.Column(db.String(50), nullable=False, default='operational')
+
+    def to_dict(self):
+        return {
+            'equipment_id': self.equipment_id,
+            'ambulance_id': self.ambulance_id,
+            'equipment_name': self.equipment_name,
+            'status': self.status
+        }
+
+class HospitalSpecialties(db.Model):
+    __tablename__ = 'hospital_specialties'
+    specialty_id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey('hospitals.hospital_id'), nullable=False)
+    specialty_name = db.Column(db.String(100), nullable=False)
+    is_available = db.Column(db.Boolean, default=True)
+
+    def to_dict(self):
+        return {
+            'specialty_id': self.specialty_id,
+            'hospital_id': self.hospital_id,
+            'specialty_name': self.specialty_name,
+            'is_available': self.is_available
+        }
+
 
 ## -- Ambulance API Routes -- ##
 
@@ -92,7 +196,7 @@ def handle_ambulances():
             db.session.rollback()
             return jsonify(error=str(e)), 500
     
-    # Default to GET
+    # GET Request
     try:
         all_ambulances = Ambulance.query.all()
         results = [ambulance.to_dict() for ambulance in all_ambulances]
@@ -155,8 +259,8 @@ def handle_hospitals():
         except Exception as e:
             db.session.rollback()
             return jsonify(error=str(e)), 500
-
-    # Default to GET
+    
+    # GET Request
     try:
         all_hospitals = Hospital.query.all()
         results = [hospital.to_dict() for hospital in all_hospitals]
@@ -196,85 +300,200 @@ def handle_hospital(hospital_id):
             db.session.rollback()
             return jsonify(error=str(e)), 500
 
-@app.route('/api/incidents', methods=['POST'])
-def create_incident():
-    """Endpoint to create a new patient and incident."""
-    data = request.get_json()
-    if not data or 'location_lat' not in data or 'location_lon' not in data:
-        return jsonify(error="Missing required location data"), 400
+## -- Incident API Routes -- ##
 
+@app.route('/api/incidents', methods=['GET', 'POST'])
+def handle_incidents():
+    if request.method == 'POST':
+        data = request.get_json()
+        if not data or 'location_lat' not in data or 'location_lon' not in data:
+            return jsonify(error="Missing required location data"), 400
+
+        try:
+            # Step 1: Create a new patient
+            new_patient = Patient(
+                full_name=data.get('patient_name'),
+                dob=data.get('patient_dob'),
+                blood_type=data.get('patient_blood_type')
+            )
+            db.session.add(new_patient)
+            db.session.flush() # Flush to get the patient_id
+
+            # Step 2: Create the incident
+            new_incident = Incident(
+                patient_id=new_patient.patient_id,
+                location_lat=data['location_lat'],
+                location_lon=data['location_lon'],
+                location_description=data.get('description'),
+                dispatcher_id=data.get('dispatcher_id'),
+                ambulance_id=data.get('ambulance_id'),
+                destination_hospital_id=data.get('hospital_id')
+            )
+            db.session.add(new_incident)
+            db.session.commit()
+            
+            return jsonify(new_incident.to_dict()), 201
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify(error=str(e)), 500
+    
+    # GET Request
     try:
-        # Step 1: Create a new patient with the info provided (can be anonymous)
-        new_patient = Patient(
-            full_name=data.get('patient_name'),
-            dob=data.get('patient_dob'),
-            blood_type=data.get('patient_blood_type')
-        )
-        db.session.add(new_patient)
-        # We flush to get the new_patient.patient_id before committing
-        db.session.flush()
-
-        # Step 2: Create the incident and link it to the new patient
-        new_incident = Incident(
-            patient_id=new_patient.patient_id,
-            location_lat=data['location_lat'],
-            location_lon=data['location_lon'],
-            location_description=data.get('description'),
-            # For now, we'll manually assign these IDs
-            dispatcher_id=data.get('dispatcher_id'),
-            ambulance_id=data.get('ambulance_id'),
-            destination_hospital_id=data.get('hospital_id')
-        )
-        db.session.add(new_incident)
-        db.session.commit()
-        
-        return jsonify(new_incident.to_dict()), 201
-
+        all_incidents = Incident.query.all()
+        results = [incident.to_dict() for incident in all_incidents]
+        return jsonify(results), 200
     except Exception as e:
-        db.session.rollback()
         return jsonify(error=str(e)), 500
 
-class Patient(db.Model):
-    __tablename__ = 'patients'
-    patient_id = db.Column(db.Integer, primary_key=True)
-    full_name = db.Column(db.String(100))
-    dob = db.Column(db.Date)
-    blood_type = db.Column(db.String(5))
 
-    def to_dict(self):
-        return {
-            'id': self.patient_id,
-            'full_name': self.full_name,
-            'dob': str(self.dob) if self.dob else None,
-            'blood_type': self.blood_type
-        }
+@app.route('/api/incidents/<int:incident_id>', methods=['GET', 'PUT'])
+def handle_incident(incident_id):
+    incident = Incident.query.get_or_404(incident_id)
 
-class Incident(db.Model):
-    __tablename__ = 'incidents'
-    incident_id = db.Column(db.Integer, primary_key=True)
-    patient_id = db.Column(db.Integer, db.ForeignKey('patients.patient_id'))
-    dispatcher_id = db.Column(db.Integer, db.ForeignKey('users.user_id'))
-    ambulance_id = db.Column(db.Integer, db.ForeignKey('ambulances.ambulance_id'))
-    destination_hospital_id = db.Column(db.Integer, db.ForeignKey('hospitals.hospital_id'))
-    location_lat = db.Column(db.DECIMAL(10, 8), nullable=False)
-    location_lon = db.Column(db.DECIMAL(11, 8), nullable=False)
-    location_description = db.Column(db.Text)
-    incident_time = db.Column(db.TIMESTAMP, server_default=db.func.now())
-    status = db.Column(db.String(50), nullable=False, default='active')
+    if request.method == 'GET':
+        return jsonify(incident.to_dict())
 
-    def to_dict(self):
-        return {
-            'id': self.incident_id,
-            'patient_id': self.patient_id,
-            'dispatcher_id': self.dispatcher_id,
-            'ambulance_id': self.ambulance_id,
-            'destination_hospital_id': self.destination_hospital_id,
-            'latitude': str(self.location_lat),
-            'longitude': str(self.location_lon),
-            'description': self.location_description,
-            'incident_time': self.incident_time.isoformat(),
-            'status': self.status
-        }
+    if request.method == 'PUT':
+        data = request.get_json()
+        try:
+            incident.patient_id = data.get('patient_id', incident.patient_id)
+            incident.dispatcher_id = data.get('dispatcher_id', incident.dispatcher_id)
+            incident.ambulance_id = data.get('ambulance_id', incident.ambulance_id)
+            incident.destination_hospital_id = data.get('hospital_id', incident.destination_hospital_id)
+            incident.location_description = data.get('description', incident.location_description)
+            incident.status = data.get('status', incident.status)
+            
+            db.session.commit()
+            return jsonify(incident.to_dict()), 200
+        except Exception as e:
+            db.session.rollback()
+            return jsonify(error=str(e)), 500
+
+
+## -- Patient Vitals API Routes -- ##
+
+@app.route('/api/incidents/<int:incident_id>/vitals', methods=['GET', 'POST'])
+def handle_incident_vitals(incident_id):
+    # Check if the incident exists
+    Incident.query.get_or_404(incident_id)
+
+    if request.method == 'POST':
+        data = request.get_json()
+        if not data:
+            return jsonify(error="Missing data"), 400
+        
+        try:
+            new_vitals = PatientVitalsLog(
+                incident_id=incident_id,
+                heart_rate=data.get('heart_rate'),
+                blood_pressure_systolic=data.get('blood_pressure_systolic'),
+                blood_pressure_diastolic=data.get('blood_pressure_diastolic'),
+                oxygen_saturation=data.get('oxygen_saturation')
+            )
+            db.session.add(new_vitals)
+            db.session.commit()
+            return jsonify(new_vitals.to_dict()), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify(error=str(e)), 500
+
+    # GET Request
+    try:
+        vitals = PatientVitalsLog.query.filter_by(incident_id=incident_id).order_by(PatientVitalsLog.timestamp.asc()).all()
+        results = [v.to_dict() for v in vitals]
+        return jsonify(results), 200
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+
+## -- Staff API Routes -- ##
+
+@app.route('/api/staff', methods=['GET', 'POST'])
+def handle_staff():
+    if request.method == 'POST':
+        data = request.get_json()
+        if not data or 'user_id' not in data:
+            return jsonify(error="Missing user_id"), 400
+        
+        # Check if user exists
+        User.query.get_or_404(data['user_id'])
+        
+        new_staff = Staff(
+            user_id=data['user_id'],
+            certification_level=data.get('certification_level'),
+            assigned_ambulance_id=data.get('assigned_ambulance_id')
+        )
+        try:
+            db.session.add(new_staff)
+            db.session.commit()
+            return jsonify(new_staff.to_dict()), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify(error=str(e)), 500
+    
+    # GET Request
+    staff = Staff.query.all()
+    return jsonify([s.to_dict() for s in staff]), 200
+
+## -- Ambulance Equipment API Routes -- ##
+
+@app.route('/api/ambulances/<int:ambulance_id>/equipment', methods=['GET', 'POST'])
+def handle_ambulance_equipment(ambulance_id):
+    # Check if ambulance exists
+    Ambulance.query.get_or_404(ambulance_id)
+    
+    if request.method == 'POST':
+        data = request.get_json()
+        if not data or 'equipment_name' not in data:
+            return jsonify(error="Missing equipment_name"), 400
+            
+        new_equipment = Equipment(
+            ambulance_id=ambulance_id,
+            equipment_name=data['equipment_name'],
+            status=data.get('status', 'operational')
+        )
+        try:
+            db.session.add(new_equipment)
+            db.session.commit()
+            return jsonify(new_equipment.to_dict()), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify(error=str(e)), 500
+
+    # GET Request
+    equipment = Equipment.query.filter_by(ambulance_id=ambulance_id).all()
+    return jsonify([e.to_dict() for e in equipment]), 200
+
+## -- Hospital Specialties API Routes -- ##
+
+@app.route('/api/hospitals/<int:hospital_id>/specialties', methods=['GET', 'POST'])
+def handle_hospital_specialties(hospital_id):
+    # Check if hospital exists
+    Hospital.query.get_or_404(hospital_id)
+    
+    if request.method == 'POST':
+        data = request.get_json()
+        if not data or 'specialty_name' not in data:
+            return jsonify(error="Missing specialty_name"), 400
+            
+        new_specialty = HospitalSpecialties(
+            hospital_id=hospital_id,
+            specialty_name=data['specialty_name'],
+            is_available=data.get('is_available', True)
+        )
+        try:
+            db.session.add(new_specialty)
+            db.session.commit()
+            return jsonify(new_specialty.to_dict()), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify(error=str(e)), 500
+
+    # GET Request
+    specialties = HospitalSpecialties.query.filter_by(hospital_id=hospital_id).all()
+    return jsonify([s.to_dict() for s in specialties]), 200
+
 
 if __name__ == '__main__':
     app.run(debug=True)
+
