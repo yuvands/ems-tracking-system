@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aether-EMS Dashboard</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Ionicons for nice icons -->
+    <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+    <style>
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        
+        /* Modal base styles */
+        .modal { 
+            display: none; 
+            opacity: 0;
+            transition: opacity 0.3s ease-out;
+        }
+        .modal.active { 
+            display: flex; 
+            opacity: 1;
+        }
+        
+        /* Modal content animation */
+        .modal .modal-content {
+            transform: scale(0.95);
+            opacity: 0;
+            transition: all 0.3s ease-out;
+        }
+        .modal.active .modal-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        /* Use Inter font */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Fix for Inter font not loading from Tailwind CDN */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <aside class="w-80 bg-white shadow-lg flex flex-col">
+            <div class="p-6 border-b border-gray-200">
+                <h1 class="text-3xl font-bold text-indigo-600">Aether-EMS</h1>
+                <p class="text-gray-500">Dispatcher Dashboard</p>
+            </div>
+            
+            <div class="p-6 flex-grow overflow-y-auto">
+                <h2 class="text-lg font-semibold text-gray-700 mb-4">Available Ambulances</h2>
+                <div id="ambulance-list" class="space-y-3">
+                    <!-- Ambulance items will be injected here -->
+                    <p class="text-gray-400 text-sm">Loading ambulances...</p>
+                </div>
+            </div>
+
+            <div class="p-6 border-t border-gray-200">
+                <button id="new-incident-btn" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-indigo-700 transition-all duration-300 flex items-center justify-center space-x-2">
+                    <ion-icon name="add-circle" class="text-2xl"></ion-icon>
+                    <span>New Incident</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-8 overflow-y-auto">
+            <h1 class="text-4xl font-bold text-gray-800 mb-8">Active Incidents</h1>
+            <div id="incident-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Incident cards will be injected here -->
+                <p class="text-gray-500">Loading incidents...</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- New Incident Modal -->
+    <div id="new-incident-modal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 items-center justify-center p-4">
+        <div class="modal-content bg-white rounded-lg shadow-2xl w-full max-w-lg p-8">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Log New Incident</h2>
+            <form id="new-incident-form">
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="text" id="patient_name" placeholder="Patient Name (Optional)" class="col-span-2 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" id="location_lat" placeholder="Latitude (e.g., 13.35)" required class="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" id="location_lon" placeholder="Longitude (e.g., 74.78)" required class="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <textarea id="description" placeholder="Description (e.g., Road accident...)" required class="w-full mt-4 p-3 border border-gray-300 rounded-lg h-24 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <select id="ambulance_id" class="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">Assign Ambulance (Optional)</option>
+                    </select>
+                    <select id="hospital_id" class="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">Assign Hospital (Optional)</option>
+                    </select>
+                </div>
+                
+                <!-- This will be our error message box -->
+                <div id="error-message" class="hidden mt-4 p-3 bg-red-100 text-red-700 border border-red-300 rounded-lg"></div>
+
+                <div class="flex justify-end space-x-4 mt-8">
+                    <button type="button" id="cancel-incident-btn" class="py-2 px-6 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition-all">Cancel</button>
+                    <button type="submit" class="py-2 px-6 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-md">Create Incident</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Vitals Modal -->
+    <div id="vitals-modal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 items-center justify-center p-4">
+        <div class="modal-content bg-white rounded-lg shadow-2xl w-full max-w-2xl p-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-gray-800">Live Patient Vitals</h2>
+                <button id="close-vitals-btn" class="text-gray-400 hover:text-gray-700 text-3xl">&times;</button>
+            </div>
+            <p class="text-gray-600 mb-2">Streaming data for <span id="vitals-incident-id" class="font-bold">Incident #...</span></p>
+            <div id="vitals-log-container" class="h-96 overflow-y-auto bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-3">
+                <!-- Vitals logs will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Base URL
+        const API_URL = 'http://127.0.0.1:5000/api';
+
+        // --- DOM Elements ---
+        const ambulanceList = document.getElementById('ambulance-list');
+        const incidentGrid = document.getElementById('incident-grid');
+        const newIncidentModal = document.getElementById('new-incident-modal');
+        const newIncidentBtn = document.getElementById('new-incident-btn');
+        const cancelIncidentBtn = document.getElementById('cancel-incident-btn');
+        const newIncidentForm = document.getElementById('new-incident-form');
+        const ambulanceSelect = document.getElementById('ambulance_id');
+        const hospitalSelect = document.getElementById('hospital_id');
+        const errorMessage = document.getElementById('error-message');
+        
+        const vitalsModal = document.getElementById('vitals-modal');
+        const closeVitalsBtn = document.getElementById('close-vitals-btn');
+        const vitalsLogContainer = document.getElementById('vitals-log-container');
+        const vitalsIncidentId = document.getElementById('vitals-incident-id');
+
+        // --- Modal Helpers ---
+        function openModal(modal) {
+            modal.classList.add('active');
+            // Animate the content
+            setTimeout(() => {
+                modal.querySelector('.modal-content').classList.remove('scale-95', 'opacity-0');
+            }, 10); // Short delay to allow display:flex to apply
+        }
+
+        function closeModal(modal) {
+            modal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
+            // Wait for animation to finish before hiding
+            setTimeout(() => {
+                modal.classList.remove('active');
+            }, 300);
+        }
+        
+        // --- Error Display ---
+        function showErrorMessage(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+        function hideErrorMessage() {
+            errorMessage.classList.add('hidden');
+        }
+
+        // --- Data Fetching & Rendering ---
+
+        // Fetch and Render Ambulances
+        async function fetchAmbulances() {
+            try {
+                const response = await fetch(`${API_URL}/ambulances`);
+                if (!response.ok) throw new Error('Failed to fetch ambulances');
+                const ambulances = await response.json();
+                
+                ambulanceList.innerHTML = ''; // Clear loading state
+                ambulanceSelect.innerHTML = '<option value="">Assign Ambulance (Optional)</option>'; // Reset dropdown
+
+                ambulances.forEach(amb => {
+                    // Set color based on status
+                    const statusColor = amb.status === 'available' ? 'bg-green-500' : 'bg-yellow-500';
+                    const ambHTML = `
+                        <div class="bg-gray-50 border border-gray-200 p-4 rounded-lg flex items-center justify-between">
+                            <div>
+                                <p class="font-bold text-gray-800">${amb.license_plate}</p>
+                                <p class="text-sm text-gray-600">Status: ${amb.status}</p>
+                            </div>
+                            <span class="w-3 h-3 ${statusColor} rounded-full"></span>
+                        </div>
+                    `;
+                    ambulanceList.innerHTML += ambHTML;
+
+                    // Only add to dropdown if it's available
+                    if (amb.status === 'available') {
+                        const optionHTML = `<option value="${amb.id}">${amb.license_plate} (ID: ${amb.id})</option>`;
+                        ambulanceSelect.innerHTML += optionHTML;
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to fetch ambulances:', error);
+                ambulanceList.innerHTML = '<p class="text-red-500">Error loading ambulances.</p>';
+            }
+        }
+
+        // Fetch Hospitals for Dropdown
+        async function fetchHospitals() {
+            try {
+                const response = await fetch(`${API_URL}/hospitals`);
+                if (!response.ok) throw new Error('Failed to fetch hospitals');
+                const hospitals = await response.json();
+                
+                hospitalSelect.innerHTML = '<option value="">Assign Hospital (Optional)</option>'; // Reset
+                hospitals.forEach(hosp => {
+                    const optionHTML = `<option value="${hosp.id}">${hosp.name} (ID: ${hosp.id})</option>`;
+                    hospitalSelect.innerHTML += optionHTML;
+                });
+            } catch (error) {
+                console.error('Failed to fetch hospitals:', error);
+            }
+        }
+
+        // Fetch and Render Incidents
+        async function fetchIncidents() {
+            try {
+                const response = await fetch(`${API_URL}/incidents`);
+                if (!response.ok) throw new Error('Failed to fetch incidents');
+                const incidents = await response.json();
+                
+                incidentGrid.innerHTML = ''; // Clear loading
+                
+                if (incidents.length === 0) {
+                    incidentGrid.innerHTML = '<p class="text-gray-500 col-span-3 text-center">No active incidents.</p>';
+                    return;
+                }
+                
+                // Sort to show newest incidents first
+                incidents.sort((a, b) => new Date(b.incident_time) - new Date(a.incident_time));
+
+                incidents.forEach(inc => {
+                    const cardHTML = `
+                        <div class="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col justify-between">
+                            <div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <h3 class="text-2xl font-bold text-gray-800">Incident #${inc.id}</h3>
+                                    <span class="px-3 py-1 rounded-full text-sm font-semibold ${inc.status === 'active' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}">
+                                        ${inc.status}
+                                    </span>
+                                </div>
+                                <p class="text-gray-600 mb-4">${inc.description}</p>
+                                <div class="space-y-2 text-sm text-gray-700">
+                                    <p><strong>Patient ID:</strong> ${inc.patient_id}</p>
+                                    <p><strong>Ambulance:</strong> ${inc.ambulance_id ? `ID ${inc.ambulance_id}` : 'Not Assigned'}</p>
+                                    <p><strong>Hospital:</strong> ${inc.destination_hospital_id ? `ID ${inc.destination_hospital_id}` : 'Not Assigned'}</p>
+                                </div>
+                            </div>
+                            <button onclick="showVitals(${inc.id})" class="mt-4 w-full bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-600 transition-all">
+                                Show Vitals
+                            </button>
+                        </div>
+                    `;
+                    incidentGrid.innerHTML += cardHTML;
+                });
+            } catch (error) {
+                console.error('Failed to fetch incidents:', error);
+                incidentGrid.innerHTML = '<p class="text-red-500 col-span-3 text-center">Error loading incidents.</p>';
+            }
+        }
+
+        // --- Event Handlers ---
+
+        // Show "New Incident" Modal
+        newIncidentBtn.addEventListener('click', () => {
+            hideErrorMessage(); // Hide any old errors
+            newIncidentForm.reset(); // Clear the form
+            fetchAmbulances(); // Refresh ambulance dropdown
+            fetchHospitals(); // Refresh hospital dropdown
+            openModal(newIncidentModal);
+        });
+
+        // Hide "New Incident" Modal
+        cancelIncidentBtn.addEventListener('click', () => closeModal(newIncidentModal));
+
+        // Handle "New Incident" Form Submission
+        newIncidentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideErrorMessage(); // Clear old errors
+            
+            // Get dispatcher ID from the users table (we hardcoded user ID 1 earlier)
+            // In a real app, this would come from login session
+            const dispatcherId = 1; 
+
+            const data = {
+                patient_name: document.getElementById('patient_name').value,
+                location_lat: document.getElementById('location_lat').value,
+                location_lon: document.getElementById('location_lon').value,
+                description: document.getElementById('description').value,
+                ambulance_id: document.getElementById('ambulance_id').value || null, // Send null if empty
+                hospital_id: document.getElementById('hospital_id').value || null, // Send null if empty
+                dispatcher_id: dispatcherId 
+            };
+             // Basic validation
+            if (!data.location_lat || !data.location_lon || !data.description) {
+                 showErrorMessage("Latitude, Longitude, and Description are required.");
+                 return;
+            }
+
+
+            try {
+                const response = await fetch(`${API_URL}/incidents`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    // This will catch foreign key errors
+                    throw new Error(err.error || 'Failed to create incident');
+                }
+
+                // Success
+                newIncidentForm.reset();
+                closeModal(newIncidentModal);
+                await fetchIncidents(); // Refresh incident grid
+                await fetchAmbulances(); // Refresh ambulance list (status might change)
+
+            } catch (error) {
+                console.error('Error submitting incident:', error);
+                // Show the specific error from the backend (e.g., "Foreign key constraint fails")
+                 // Extract the core error message if possible
+                let friendlyError = error.message;
+                if (friendlyError.includes("FOREIGN KEY constraint fails")) {
+                    if (friendlyError.includes("ambulance_id")) {
+                        friendlyError = "The selected ambulance ID does not exist. Please refresh the list.";
+                    } else if (friendlyError.includes("hospital_id")) {
+                        friendlyError = "The selected hospital ID does not exist. Please refresh the list.";
+                    } else if (friendlyError.includes("dispatcher_id")) {
+                         friendlyError = "Invalid dispatcher ID configured.";
+                    } else {
+                        friendlyError = "Database error: An assigned resource does not exist.";
+                    }
+                } else if (friendlyError.includes("Failed to fetch")) {
+                     friendlyError = "Cannot connect to the backend server. Is it running?";
+                }
+                showErrorMessage(`Error: ${friendlyError}`);
+            }
+        });
+
+        // Show Vitals Modal
+        async function showVitals(incidentId) {
+            vitalsIncidentId.textContent = `Incident #${incidentId}`;
+            vitalsLogContainer.innerHTML = '<p class="text-gray-500 text-center">Loading vitals...</p>';
+            openModal(vitalsModal);
+
+            try {
+                const response = await fetch(`${API_URL}/incidents/${incidentId}/vitals`);
+                if (!response.ok) throw new Error('Failed to fetch vitals');
+                
+                const vitals = await response.json();
+                
+                vitalsLogContainer.innerHTML = '';
+                
+                if (vitals.length === 0) {
+                    vitalsLogContainer.innerHTML = '<p class="text-gray-500 text-center">No vitals logged for this incident.</p>';
+                    return;
+                }
+                
+                // Sort by time, newest first
+                vitals.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                vitals.forEach(v => {
+                    const vitalsHTML = `
+                        <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                            <p class="text-sm text-gray-500 mb-2 font-medium">${new Date(v.timestamp).toLocaleString()}</p>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-gray-800">
+                                <div class="flex items-center space-x-2">
+                                    <ion-icon name="heart" class="text-red-500 text-xl"></ion-icon>
+                                    <span>HR: <span class="font-bold">${v.heart_rate || 'N/A'}</span></span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <ion-icon name="pulse" class="text-blue-500 text-xl"></ion-icon>
+                                    <span>SpO2: <span class="font-bold">${v.oxygen_saturation || 'N/A'}%</span></span>
+                                </div>
+                                <div class="flex items-center space-x-2 col-span-2 sm:col-span-1">
+                                    <ion-icon name="analytics" class="text-green-500 text-xl"></ion-icon>
+                                    <span>BP: <span class="font-bold">${v.blood_pressure_systolic || 'N/A'} / ${v.blood_pressure_diastolic || 'N/A'}</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    vitalsLogContainer.innerHTML += vitalsHTML;
+                });
+            } catch (error) {
+                console.error('Failed to fetch vitals:', error);
+                vitalsLogContainer.innerHTML = '<p class="text-red-500 text-center">Error loading vitals.</p>';
+            }
+        }
+
+        // Close Vitals Modal
+        closeVitalsBtn.addEventListener('click', () => closeModal(vitalsModal));
+
+
+        // --- Initial Load ---
+        // Load data once the DOM is fully ready
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchAmbulances();
+            fetchIncidents();
+            // We fetch hospitals only when the modal is opened
+        });
+    </script>
+</body>
+</html>
+

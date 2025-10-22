@@ -2,9 +2,11 @@ from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from config import Config
 import datetime
+from flask_cors import CORS  # <-- 1. IMPORT CORS
 
 app = Flask(__name__)
 app.config.from_object(Config)
+CORS(app)  # <-- 2. INITIALIZE CORS
 db = SQLAlchemy(app)
 
 
@@ -292,6 +294,7 @@ def handle_hospital(hospital_id):
             return jsonify(error=str(e)), 500
 
     if request.method == 'DELETE':
+    
         try:
             db.session.delete(hospital)
             db.session.commit()
