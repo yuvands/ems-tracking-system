@@ -9,4 +9,5 @@ __pycache__/
 .vscode/
 
 # Environment variables
-.env
+.envaether-ems/backend/config.py
+backend/config.py
