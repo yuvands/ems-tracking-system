@@ -1,4 +1,4 @@
-# **Aether-EMS: AI-Powered Emergency Response System**
+# **Emergency Response System**
 
 ## **1\. Project Overview**
 
