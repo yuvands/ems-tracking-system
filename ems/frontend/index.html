@@ -83,7 +83,8 @@
 
                 <!-- Active Incidents Section -->
                 <div class="mb-4">
-                    <h2 class="text-2xl font-semibold text-gray-800">Active Incidents</h2>
+                    <h2 class="text-2xl font-semibold text-gray-800">Incidents</h2>
+                    <!-- Maybe add filtering later -->
                 </div>
                 <div id="incident-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div class="text-center p-5 text-gray-500 col-span-full">Loading incidents...</div>
@@ -224,6 +225,53 @@
         </div>
     </div>
 
+    <!-- 
+        *********************************
+        ** NEW MODAL ADDED BELOW **
+        *********************************
+    -->
+    <!-- "Manage Incident" Modal -->
+    <div id="manage-incident-modal" class="modal">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg m-4">
+            <h2 id="manage-incident-modal-title" class="text-2xl font-bold mb-6 text-gray-800">Manage Incident</h2>
+            <form id="manage-incident-form">
+                <input type="hidden" id="manage-incident-id-input" value="">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Patient Name</label>
+                        <p id="manage-incident-patient-name" class="mt-1 text-gray-600"></p>
+                    </div>
+                     <textarea id="manage-incident-description" placeholder="Description" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                     <select id="manage-incident-ambulance-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">Assign Ambulance (Optional)</option>
+                        <!-- Options populated by JS -->
+                    </select>
+                    <select id="manage-incident-hospital-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">Assign Hospital (Optional)</option>
+                        <!-- Options populated by JS -->
+                    </select>
+                     <select id="manage-incident-status" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="active">Active</option>
+                        <option value="closed">Closed</option>
+                        <option value="cancelled">Cancelled</option>
+                        <!-- Add other relevant statuses if needed, ensure they match backend/db enum -->
+                         <option value="en_route_to_scene">En Route to Scene</option>
+                         <option value="at_scene">At Scene</option>
+                         <option value="en_route_to_hospital">En Route to Hospital</option>
+                    </select>
+                    <div id="manage-incident-form-error" class="text-red-600 text-sm hidden"></div>
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" id="cancel-manage-incident" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">Cancel</button>
+                        <button type="submit" id="save-manage-incident-btn" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
+                            Update Incident
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
     <!-- Custom Message Box for Errors/Success -->
     <div id="message-box" class="modal">
         <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-sm m-4">
@@ -243,7 +291,6 @@
         const API_URL = 'http://127.0.0.1:5000/api';
 
         // --- All DOM Elements ---
-        // Ensure all elements exist before trying to access them
         const ambulanceList = document.getElementById('ambulance-list');
         const incidentGrid = document.getElementById('incident-grid');
         const hospitalGrid = document.getElementById('hospital-grid');
@@ -288,6 +335,21 @@
         const deleteHospitalBtn = document.getElementById('delete-hospital-btn');
         const saveHospitalBtn = document.getElementById('save-hospital-btn');
 
+        // Manage Incident Modal Elements (NEW)
+        const manageIncidentModal = document.getElementById('manage-incident-modal');
+        const manageIncidentModalTitle = document.getElementById('manage-incident-modal-title');
+        const manageIncidentForm = document.getElementById('manage-incident-form');
+        const manageIncidentIdInput = document.getElementById('manage-incident-id-input');
+        const manageIncidentPatientName = document.getElementById('manage-incident-patient-name');
+        const manageIncidentDescription = document.getElementById('manage-incident-description');
+        const manageIncidentAmbulanceSelect = document.getElementById('manage-incident-ambulance-select');
+        const manageIncidentHospitalSelect = document.getElementById('manage-incident-hospital-select');
+        const manageIncidentStatus = document.getElementById('manage-incident-status');
+        const manageIncidentFormError = document.getElementById('manage-incident-form-error');
+        const cancelManageIncidentBtn = document.getElementById('cancel-manage-incident');
+        const saveManageIncidentBtn = document.getElementById('save-manage-incident-btn');
+
+
         const msgBox = document.getElementById('message-box');
         const msgTitle = document.getElementById('message-title');
         const msgBody = document.getElementById('message-body');
@@ -296,30 +358,32 @@
         // Global state to store data
         let allAmbulances = [];
         let allHospitals = [];
+        let allIncidents = []; // <-- Store incidents globally
 
         /** Shows a custom message box */
         function showMessage(title, message) {
-            console.log("Showing message:", title, message); // <-- DEBUG LOG
+            console.log("Showing message:", title, message);
             if (msgTitle && msgBody && msgBox) {
                 msgTitle.textContent = title;
                 msgBody.textContent = message;
                 msgBox.classList.add('active');
-            } else {
-                console.error("Message box elements not found!");
-            }
+            } else { console.error("Message box elements not found!"); }
         }
 
         /** Hides the custom message box */
         function hideMessageBox() {
-            console.log("Hiding message box"); // <-- DEBUG LOG
-            if (msgBox) {
-                msgBox.classList.remove('active');
-            }
+            console.log("Hiding message box");
+            if (msgBox) { msgBox.classList.remove('active'); }
         }
 
         /** Fetches all initial data and renders the dashboard */
         async function loadInitialData() {
-            console.log("Loading initial data..."); // <-- DEBUG LOG
+            console.log("Loading initial data...");
+            // Show loading states
+            if (ambulanceList) ambulanceList.innerHTML = '<p class="text-gray-400">Loading units...</p>';
+            if (incidentGrid) incidentGrid.innerHTML = '<p class="text-gray-500 col-span-full">Loading incidents...</p>';
+            if (hospitalGrid) hospitalGrid.innerHTML = '<p class="text-gray-500 col-span-full">Loading hospitals...</p>';
+
             try {
                 const [ambResponse, incResponse, hospResponse] = await Promise.all([
                     fetch(`${API_URL}/ambulances`),
@@ -332,29 +396,31 @@
                 }
 
                 allAmbulances = await ambResponse.json();
-                const incidents = await incResponse.json();
+                allIncidents = await incResponse.json(); // Store incidents globally
                 allHospitals = await hospResponse.json();
 
-                console.log("Data fetched:", { ambulances: allAmbulances.length, incidents: incidents.length, hospitals: allHospitals.length }); // <-- DEBUG LOG
+                console.log("Data fetched:", { ambulances: allAmbulances.length, incidents: allIncidents.length, hospitals: allHospitals.length });
 
                 renderAmbulances(allAmbulances);
-                renderIncidents(incidents);
+                renderIncidents(allIncidents); // Use global incidents
                 renderHospitals(allHospitals);
                 populateDropdowns(allAmbulances, allHospitals);
 
             } catch (error) {
-                console.error("Error in loadInitialData:", error); // <-- More specific error log
+                console.error("Error in loadInitialData:", error);
                 showMessage('Network Error', `Failed to connect to the EMS API. ${error.message}`);
+                 // Show error states
+                 if (ambulanceList) ambulanceList.innerHTML = '<p class="text-red-500">Failed to load units.</p>';
+                 if (incidentGrid) incidentGrid.innerHTML = '<p class="text-red-500 col-span-full">Failed to load incidents.</p>';
+                 if (hospitalGrid) hospitalGrid.innerHTML = '<p class="text-red-500 col-span-full">Failed to load hospitals.</p>';
             }
         }
 
         /** Renders the list of ambulances in the sidebar */
         function renderAmbulances(ambulances) {
-             if (!ambulanceList) return; // Guard clause
+            if (!ambulanceList) return;
             ambulanceList.innerHTML = '';
-            if (ambulances.length === 0) {
-                ambulanceList.innerHTML = '<p class="text-gray-500">No units in system.</p>'; return;
-            }
+            if (ambulances.length === 0) { ambulanceList.innerHTML = '<p class="text-gray-500">No units in system.</p>'; return; }
             ambulances.sort((a, b) => a.id - b.id);
             ambulances.forEach(amb => {
                 let statusColor = 'bg-gray-100 text-gray-800';
@@ -372,76 +438,80 @@
                     </div>
                     <div class="text-sm text-gray-500 mt-2 flex justify-between items-center">
                         <span>ID: ${amb.id}</span>
-                        <button class="text-xs text-indigo-600 font-semibold hover:underline manage-ambulance-btn" data-id="${amb.id}">
-                            Manage
-                        </button>
+                        <button class="text-xs text-indigo-600 font-semibold hover:underline manage-ambulance-btn" data-id="${amb.id}">Manage</button>
                     </div>`;
-                // Add event listener directly to the button
                  const manageBtn = div.querySelector('.manage-ambulance-btn');
-                 if (manageBtn) {
-                    manageBtn.addEventListener('click', () => openAmbulanceModal(amb.id));
-                 }
+                 if (manageBtn) { manageBtn.addEventListener('click', () => openAmbulanceModal(amb.id)); }
                 ambulanceList.appendChild(div);
             });
         }
 
-        /** Renders the grid of active incidents */
+        /** Renders the grid of incidents */
         function renderIncidents(incidents) {
-             if (!incidentGrid) return; // Guard clause
+            if (!incidentGrid) return;
             incidentGrid.innerHTML = '';
-            const activeIncidents = incidents.filter(i => i.status?.toLowerCase() === 'active');
-            if (activeIncidents.length === 0) {
-                incidentGrid.innerHTML = '<p class="text-gray-500 col-span-full">No active incidents.</p>'; return;
+            // Show ALL incidents now, maybe sorted differently
+            if (incidents.length === 0) {
+                incidentGrid.innerHTML = '<p class="text-gray-500 col-span-full">No incidents recorded.</p>'; return;
             }
-            activeIncidents.sort((a, b) => new Date(b.incident_time) - new Date(a.incident_time));
-            activeIncidents.forEach(inc => {
+             // Sort by newest first
+            incidents.sort((a, b) => new Date(b.incident_time || 0) - new Date(a.incident_time || 0));
+
+            incidents.forEach(inc => {
+                let statusColor = 'bg-gray-100 text-gray-800'; // Default/unknown
+                if (inc.status === 'active') statusColor = 'bg-red-100 text-red-800';
+                if (inc.status?.includes('en_route')) statusColor = 'bg-blue-100 text-blue-800';
+                if (inc.status === 'at_scene') statusColor = 'bg-yellow-100 text-yellow-800';
+                if (inc.status === 'closed') statusColor = 'bg-green-100 text-green-800';
+                if (inc.status === 'cancelled') statusColor = 'bg-gray-100 text-gray-500';
+
                 const div = document.createElement('div');
-                div.className = "bg-white p-5 rounded-lg shadow-md border border-gray-100";
+                div.className = "bg-white p-5 rounded-lg shadow-md border border-gray-100 flex flex-col"; // Use flex-col
                 div.innerHTML = `
                     <div class="flex justify-between items-center mb-3">
                         <h3 class="text-lg font-semibold text-gray-900">Incident #${inc.id}</h3>
-                        <span class="text-xs font-medium bg-red-100 text-red-800 px-2 py-0.5 rounded-full">${inc.status}</span>
+                        <span class="text-xs font-medium ${statusColor} px-2 py-0.5 rounded-full">${inc.status}</span>
                     </div>
-                    <p class="text-sm text-gray-600 mb-4 truncate">${inc.description || 'No description provided.'}</p>
-                    <div class="space-y-2 text-sm text-gray-700">
+                    <p class="text-sm text-gray-600 mb-4 truncate flex-grow">${inc.description || 'No description.'}</p> <!-- flex-grow -->
+                    <div class="space-y-2 text-sm text-gray-700 mb-4"> <!-- Added mb-4 -->
                         <div class="flex items-center space-x-2"><ion-icon name="location-sharp" class="text-indigo-500"></ion-icon><span>${inc.latitude}, ${inc.longitude}</span></div>
-                        <div class="flex items-center space-x-2"><ion-icon name="medkit-sharp" class="text-green-500"></ion-icon><span>Ambulance: ${inc.ambulance_id || 'N/A'}</span></div>
-                        <div class="flex items-center space-x-2"><ion-icon name="business-sharp" class="text-blue-500"></ion-icon><span>Hospital: ${inc.destination_hospital_id || 'N/A'}</span></div>
+                        <div class="flex items-center space-x-2"><ion-icon name="medkit-sharp" class="text-green-500"></ion-icon><span>Unit: ${inc.ambulance_id || 'N/A'}</span></div>
+                        <div class="flex items-center space-x-2"><ion-icon name="business-sharp" class="text-blue-500"></ion-icon><span>Dest: ${inc.destination_hospital_id || 'N/A'}</span></div>
                     </div>
-                    <div class="mt-4 pt-4 border-t border-gray-100">
-                        <button class="w-full text-indigo-600 font-semibold py-2 px-4 rounded-lg hover:bg-indigo-50 transition-colors show-vitals-btn" data-id="${inc.id}">
-                            Show Vitals
+                    <div class="mt-auto pt-4 border-t border-gray-100 flex space-x-2"> <!-- mt-auto pushes to bottom -->
+                        <button class="flex-1 text-indigo-600 font-semibold py-2 px-3 rounded-lg hover:bg-indigo-50 transition-colors text-sm show-vitals-btn" data-id="${inc.id}">
+                            Vitals
+                        </button>
+                        <button class="flex-1 text-gray-600 font-semibold py-2 px-3 rounded-lg hover:bg-gray-100 transition-colors text-sm manage-incident-btn" data-id="${inc.id}">
+                            Manage
                         </button>
                     </div>`;
-                // Add event listener directly
                 const vitalsBtn = div.querySelector('.show-vitals-btn');
-                if(vitalsBtn) {
-                    vitalsBtn.addEventListener('click', () => showVitals(inc.id));
-                }
+                if(vitalsBtn) { vitalsBtn.addEventListener('click', () => showVitals(inc.id)); }
+                // Add listener for the new manage button
+                const manageBtn = div.querySelector('.manage-incident-btn');
+                if(manageBtn) { manageBtn.addEventListener('click', () => openManageIncidentModal(inc.id)); }
+
                 incidentGrid.appendChild(div);
             });
         }
 
         /** Renders the grid of hospitals */
         function renderHospitals(hospitals) {
-             if (!hospitalGrid) return; // Guard clause
+            if (!hospitalGrid) return;
             hospitalGrid.innerHTML = '';
-            if (!hospitals || hospitals.length === 0) {
-                hospitalGrid.innerHTML = '<p class="text-gray-500 col-span-full">No hospitals found.</p>'; return;
-            }
+            if (!hospitals || hospitals.length === 0) { hospitalGrid.innerHTML = '<p class="text-gray-500 col-span-full">No hospitals found.</p>'; return; }
             hospitals.sort((a, b) => a.id - b.id);
             hospitals.forEach(hospital => {
                 let capacityHtml = '<span class="text-xs text-gray-400">Capacity N/A</span>';
                 if (hospital.er_capacity != null && hospital.er_current_occupancy != null) {
-                    const capacity = parseInt(hospital.er_capacity);
-                    const occupancy = parseInt(hospital.er_current_occupancy);
+                    const capacity = parseInt(hospital.er_capacity); const occupancy = parseInt(hospital.er_current_occupancy);
                     let occupancyPercentage = capacity > 0 ? (occupancy / capacity) * 100 : 0;
                     let capacityColor = 'bg-green-100 text-green-800';
                     if (occupancyPercentage > 70) capacityColor = 'bg-yellow-100 text-yellow-800';
                     if (occupancyPercentage >= 90) capacityColor = 'bg-red-100 text-red-800';
                     capacityHtml = `<span class="text-xs font-medium px-2 py-0.5 rounded-full ${capacityColor}">ER: ${occupancy} / ${capacity}</span>`;
                 }
-
                 const div = document.createElement('div');
                 div.className = "bg-white p-5 rounded-lg shadow-md border border-gray-100";
                 div.innerHTML = `
@@ -451,65 +521,51 @@
                     </div>
                     <p class="text-sm text-gray-600 truncate">${hospital.address || 'Address not available'}</p>
                     <div class="text-sm text-gray-400 mt-2 flex justify-between items-center">
-                       <div>
-                           <span class="font-medium">ID: ${hospital.id}</span> |
-                           <span class="text-gray-500">${hospital.latitude}, ${hospital.longitude}</span>
-                       </div>
-                        <button class="text-xs text-indigo-600 font-semibold hover:underline manage-hospital-btn" data-id="${hospital.id}">
-                            Manage
-                        </button>
+                       <div> <span class="font-medium">ID: ${hospital.id}</span> | <span class="text-gray-500">${hospital.latitude}, ${hospital.longitude}</span> </div>
+                        <button class="text-xs text-indigo-600 font-semibold hover:underline manage-hospital-btn" data-id="${hospital.id}"> Manage </button>
                     </div>`;
-                // Add event listener directly
                 const manageBtn = div.querySelector('.manage-hospital-btn');
-                if(manageBtn) {
-                   manageBtn.addEventListener('click', () => openHospitalModal(hospital.id));
-                }
+                if(manageBtn) { manageBtn.addEventListener('click', () => openHospitalModal(hospital.id)); }
                 hospitalGrid.appendChild(div);
             });
         }
 
-        /** Populates dropdowns in the incident form */
-        function populateDropdowns(ambulances, hospitals) {
-             if (!ambSelect || !hospSelect) return; // Guard clause
-            ambSelect.innerHTML = '<option value="">Assign Ambulance (Optional)</option>';
-            ambulances.filter(a => a.status === 'available').forEach(amb => {
-                ambSelect.innerHTML += `<option value="${amb.id}">${amb.license_plate} (ID: ${amb.id})</option>`;
+        /** Populates dropdowns in the incident forms */
+        function populateDropdowns(ambulances, hospitals, targetAmbDropdown = ambSelect, targetHospDropdown = hospSelect) {
+             if (!targetAmbDropdown || !targetHospDropdown) return;
+            // Ambulance Dropdown
+            targetAmbDropdown.innerHTML = '<option value="">Assign Ambulance (Optional)</option>';
+             // Include all ambulances for editing, maybe filter for creation
+            ambulances.forEach(amb => {
+                targetAmbDropdown.innerHTML += `<option value="${amb.id}">${amb.license_plate} (ID: ${amb.id})</option>`;
             });
-            hospSelect.innerHTML = '<option value="">Assign Hospital (Optional)</option>';
+            // Hospital Dropdown
+            targetHospDropdown.innerHTML = '<option value="">Assign Hospital (Optional)</option>';
             hospitals.forEach(hosp => {
-                hospSelect.innerHTML += `<option value="${hosp.id}">${hosp.name} (ID: ${hosp.id})</option>`;
+                targetHospDropdown.innerHTML += `<option value="${hosp.id}">${hosp.name} (ID: ${hosp.id})</option>`;
             });
         }
 
         // --- Incident Modal ---
         function showIncidentModal() {
-            console.log("showIncidentModal called"); // <-- DEBUG LOG
+            console.log("showIncidentModal called");
+            populateDropdowns(allAmbulances, allHospitals, ambSelect, hospSelect); // Ensure dropdowns are fresh
             if (incidentForm) incidentForm.reset();
             if (incidentFormError) incidentFormError.classList.add('hidden');
             if (incidentModal) incidentModal.classList.add('active');
         }
-        function hideIncidentModal() {
-             console.log("hideIncidentModal called"); // <-- DEBUG LOG
-             if (incidentModal) incidentModal.classList.remove('active');
-        }
+        function hideIncidentModal() { console.log("hideIncidentModal called"); if (incidentModal) incidentModal.classList.remove('active'); }
         async function handleIncidentSubmit(e) {
-             console.log("handleIncidentSubmit called"); // <-- DEBUG LOG
-            e.preventDefault();
+             console.log("handleIncidentSubmit called"); e.preventDefault();
              if (incidentFormError) incidentFormError.classList.add('hidden');
             const incidentData = {
                 patient_name: document.getElementById('patient-name')?.value || null,
-                location_lat: document.getElementById('latitude')?.value,
-                location_lon: document.getElementById('longitude')?.value,
+                location_lat: document.getElementById('latitude')?.value, location_lon: document.getElementById('longitude')?.value,
                 description: document.getElementById('description')?.value || null,
-                ambulance_id: ambSelect?.value || null,
-                hospital_id: hospSelect?.value || null,
+                ambulance_id: ambSelect?.value || null, hospital_id: hospSelect?.value || null,
                 dispatcher_id: 1 // Hard-code dispatcher 1
             };
-             // Basic validation
-            if (!incidentData.location_lat || !incidentData.location_lon) {
-                 showMessage("Validation Error", "Latitude and Longitude are required.");
-                 return;
-            }
+            if (!incidentData.location_lat || !incidentData.location_lon) { showMessage("Validation Error", "Latitude and Longitude are required."); return; }
             try {
                 const response = await fetch(`${API_URL}/incidents`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(incidentData) });
                 if (!response.ok) { const errData = await response.json(); throw new Error(errData.error || `HTTP error! status: ${response.status}`); }
@@ -519,7 +575,7 @@
 
         // --- Vitals Modal ---
         async function showVitals(incidentId) {
-            console.log("showVitals called for incident ID:", incidentId); // <-- DEBUG LOG
+            console.log("showVitals called for incident ID:", incidentId);
             if (!vitalsContent || !vitalsModal) return;
             vitalsContent.innerHTML = '<p class="text-gray-500">Loading vitals...</p>'; vitalsModal.classList.add('active');
             try {
@@ -532,15 +588,12 @@
                 });
             } catch (error) { console.error("Error in showVitals:", error); vitalsContent.innerHTML = `<p class="text-red-500">Could not load vitals: ${error.message}</p>`; }
         }
-        function hideVitalsModal() {
-            console.log("hideVitalsModal called"); // <-- DEBUG LOG
-             if(vitalsModal) vitalsModal.classList.remove('active');
-        }
+        function hideVitalsModal() { console.log("hideVitalsModal called"); if(vitalsModal) vitalsModal.classList.remove('active'); }
 
         // --- Ambulance Modal ---
         function openAmbulanceModal(ambulanceId = null) {
-            console.log("openAmbulanceModal called with ID:", ambulanceId); // <-- DEBUG LOG
-            if (!ambulanceForm || !ambulanceFormError || !ambulanceModal || !ambulanceIdInput || !ambulancePlate || !ambulanceStatus || !ambulanceLat || !ambulanceLon || !deleteAmbulanceBtn || !saveAmbulanceBtn || !ambulanceModalTitle) return; // Guard clause
+            console.log("openAmbulanceModal called with ID:", ambulanceId);
+            if (!ambulanceForm || !ambulanceFormError || !ambulanceModal || !ambulanceIdInput || !ambulancePlate || !ambulanceStatus || !ambulanceLat || !ambulanceLon || !deleteAmbulanceBtn || !saveAmbulanceBtn || !ambulanceModalTitle) return;
             ambulanceForm.reset(); ambulanceFormError.classList.add('hidden');
             if (ambulanceId) { // Update mode
                 const ambulance = allAmbulances.find(a => a.id === ambulanceId); if (!ambulance) { showMessage('Error', `Ambulance ID ${ambulanceId} not found`); return; }
@@ -551,20 +604,12 @@
             }
             ambulanceModal.classList.add('active');
         }
-        function hideAmbulanceModal() {
-            console.log("hideAmbulanceModal called"); // <-- DEBUG LOG
-             if (ambulanceModal) ambulanceModal.classList.remove('active');
-        }
+        function hideAmbulanceModal() { console.log("hideAmbulanceModal called"); if (ambulanceModal) ambulanceModal.classList.remove('active'); }
         async function handleAmbulanceSubmit(e) {
-            console.log("handleAmbulanceSubmit called"); // <-- DEBUG LOG
-            e.preventDefault(); if(ambulanceFormError) ambulanceFormError.classList.add('hidden');
+            console.log("handleAmbulanceSubmit called"); e.preventDefault(); if(ambulanceFormError) ambulanceFormError.classList.add('hidden');
             const ambulanceId = ambulanceIdInput?.value; const isUpdate = !!ambulanceId;
             const data = { license_plate: ambulancePlate?.value, status: ambulanceStatus?.value, latitude: ambulanceLat?.value || null, longitude: ambulanceLon?.value || null };
-             // Basic validation
-            if (!data.license_plate) {
-                showMessage("Validation Error", "License Plate is required.");
-                return;
-            }
+            if (!data.license_plate) { showMessage("Validation Error", "License Plate is required."); return; }
             const url = isUpdate ? `${API_URL}/ambulances/${ambulanceId}` : `${API_URL}/ambulances`; const method = isUpdate ? 'PUT' : 'POST';
             try {
                 const response = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
@@ -573,15 +618,12 @@
             } catch (error) { console.error('Error saving ambulance:', error); if(ambulanceFormError){ ambulanceFormError.textContent = `Error: ${error.message}`; ambulanceFormError.classList.remove('hidden');} }
         }
         async function handleAmbulanceDelete() {
-            console.log("handleAmbulanceDelete called"); // <-- DEBUG LOG
-            const ambulanceId = ambulanceIdInput?.value; if (!ambulanceId) return;
-            // Removed confirm()
+            console.log("handleAmbulanceDelete called"); const ambulanceId = ambulanceIdInput?.value; if (!ambulanceId) return;
             try {
                 const response = await fetch(`${API_URL}/ambulances/${ambulanceId}`, { method: 'DELETE' });
                 if (!response.ok && response.status !== 204) {
                     let errorMsg = `HTTP error! status: ${response.status}`;
-                    try { const errData = await response.json(); errorMsg = errData.error || errorMsg; } catch (e) { /* Ignore parsing error */ }
-                    throw new Error(errorMsg);
+                    try { const errData = await response.json(); errorMsg = errData.error || errorMsg; } catch (e) { /* Ignore */ } throw new Error(errorMsg);
                 }
                 hideAmbulanceModal(); showMessage('Success', `Ambulance ID ${ambulanceId} deleted.`); loadInitialData();
             } catch (error) { console.error('Error deleting ambulance:', error); if(ambulanceFormError){ ambulanceFormError.textContent = `Error: ${error.message}`; ambulanceFormError.classList.remove('hidden');} }
@@ -589,8 +631,8 @@
 
         // --- Hospital Modal ---
         function openHospitalModal(hospitalId = null) {
-            console.log("openHospitalModal called with ID:", hospitalId); // <-- DEBUG LOG
-             if (!hospitalForm || !hospitalFormError || !hospitalModal || !hospitalIdInput || !hospitalName || !hospitalAddress || !hospitalLat || !hospitalLon || !hospitalErCapacity || !hospitalErOccupancy || !deleteHospitalBtn || !saveHospitalBtn || !hospitalModalTitle) return; // Guard clause
+            console.log("openHospitalModal called with ID:", hospitalId);
+             if (!hospitalForm || !hospitalFormError || !hospitalModal || !hospitalIdInput || !hospitalName || !hospitalAddress || !hospitalLat || !hospitalLon || !hospitalErCapacity || !hospitalErOccupancy || !deleteHospitalBtn || !saveHospitalBtn || !hospitalModalTitle) return;
             hospitalForm.reset(); hospitalFormError.classList.add('hidden');
             if (hospitalId) { // Update mode
                 const hospital = allHospitals.find(h => h.id === hospitalId); if (!hospital) { showMessage('Error', `Hospital ID ${hospitalId} not found`); return; }
@@ -602,21 +644,15 @@
             }
             hospitalModal.classList.add('active');
         }
-        function hideHospitalModal() {
-            console.log("hideHospitalModal called"); // <-- DEBUG LOG
-             if (hospitalModal) hospitalModal.classList.remove('active');
-        }
+        function hideHospitalModal() { console.log("hideHospitalModal called"); if (hospitalModal) hospitalModal.classList.remove('active'); }
         async function handleHospitalSubmit(e) {
-            console.log("handleHospitalSubmit called"); // <-- DEBUG LOG
-            e.preventDefault(); if (hospitalFormError) hospitalFormError.classList.add('hidden');
+            console.log("handleHospitalSubmit called"); e.preventDefault(); if (hospitalFormError) hospitalFormError.classList.add('hidden');
             const hospitalId = hospitalIdInput?.value; const isUpdate = !!hospitalId;
             const data = {
                 name: hospitalName?.value, address: hospitalAddress?.value || null, latitude: hospitalLat?.value, longitude: hospitalLon?.value,
                 er_capacity: hospitalErCapacity?.value || null, er_current_occupancy: hospitalErOccupancy?.value || null
             };
-            if (!data.name || !data.latitude || !data.longitude) {
-                 showMessage("Validation Error", "Name, Latitude, and Longitude are required."); return;
-            }
+            if (!data.name || !data.latitude || !data.longitude) { showMessage("Validation Error", "Name, Latitude, and Longitude are required."); return; }
             const url = isUpdate ? `${API_URL}/hospitals/${hospitalId}` : `${API_URL}/hospitals`; const method = isUpdate ? 'PUT' : 'POST';
             try {
                 const response = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
@@ -625,49 +661,110 @@
             } catch (error) { console.error('Error saving hospital:', error); if (hospitalFormError) { hospitalFormError.textContent = `Error: ${error.message}`; hospitalFormError.classList.remove('hidden'); } }
         }
          async function handleHospitalDelete() {
-             console.log("handleHospitalDelete called"); // <-- DEBUG LOG
-            const hospitalId = hospitalIdInput?.value; if (!hospitalId) return;
-             // Removed confirm()
+             console.log("handleHospitalDelete called"); const hospitalId = hospitalIdInput?.value; if (!hospitalId) return;
             try {
                 const response = await fetch(`${API_URL}/hospitals/${hospitalId}`, { method: 'DELETE' });
                 if (!response.ok && response.status !== 204) {
                     let errorMsg = `HTTP error! status: ${response.status}`;
-                    try { const errData = await response.json(); errorMsg = errData.error || errorMsg; } catch(e) { /* Ignore */ }
-                    throw new Error(errorMsg);
+                    try { const errData = await response.json(); errorMsg = errData.error || errorMsg; } catch(e) { /* Ignore */ } throw new Error(errorMsg);
                 }
                 hideHospitalModal(); showMessage('Success', `Hospital ID ${hospitalId} deleted.`); loadInitialData();
             } catch (error) { console.error('Error deleting hospital:', error); if (hospitalFormError) { hospitalFormError.textContent = `Error: ${error.message}`; hospitalFormError.classList.remove('hidden'); } }
         }
 
+        // --- Manage Incident Modal --- (NEW FUNCTIONS)
+        async function openManageIncidentModal(incidentId = null) {
+            console.log("openManageIncidentModal called with ID:", incidentId);
+             if (!manageIncidentForm || !manageIncidentFormError || !manageIncidentModal || !manageIncidentIdInput || !manageIncidentPatientName || !manageIncidentDescription || !manageIncidentAmbulanceSelect || !manageIncidentHospitalSelect || !manageIncidentStatus || !cancelManageIncidentBtn || !saveManageIncidentBtn || !manageIncidentModalTitle) {
+                 console.error("One or more manage incident modal elements not found!"); return;
+             }
+            manageIncidentForm.reset(); manageIncidentFormError.classList.add('hidden');
+
+            const incident = allIncidents.find(inc => inc.id === incidentId);
+            if (!incident) { showMessage('Error', `Incident ID ${incidentId} not found.`); return; }
+
+             // Fetch patient details (simple version - assumes patient model exists if needed)
+             // In a real app you might fetch patient details: const patientResponse = await fetch(`${API_URL}/patients/${incident.patient_id}`); ...
+             manageIncidentPatientName.textContent = `Patient ID: ${incident.patient_id}`; // Simplified display
+
+            manageIncidentModalTitle.textContent = `Manage Incident #${incident.id}`;
+            manageIncidentIdInput.value = incident.id;
+            manageIncidentDescription.value = incident.description || '';
+            manageIncidentStatus.value = incident.status || 'active'; // Set current status
+
+            // Populate and set dropdowns
+            populateDropdowns(allAmbulances, allHospitals, manageIncidentAmbulanceSelect, manageIncidentHospitalSelect);
+            manageIncidentAmbulanceSelect.value = incident.ambulance_id || ''; // Set current ambulance
+            manageIncidentHospitalSelect.value = incident.destination_hospital_id || ''; // Set current hospital
+
+            manageIncidentModal.classList.add('active');
+        }
+
+        function hideManageIncidentModal() {
+            console.log("hideManageIncidentModal called");
+             if (manageIncidentModal) manageIncidentModal.classList.remove('active');
+        }
+
+        async function handleManageIncidentSubmit(e) {
+            console.log("handleManageIncidentSubmit called");
+            e.preventDefault(); if(manageIncidentFormError) manageIncidentFormError.classList.add('hidden');
+
+            const incidentId = manageIncidentIdInput?.value;
+            if (!incidentId) { showMessage("Error", "Incident ID missing."); return; }
+
+            const data = {
+                description: manageIncidentDescription?.value || null,
+                ambulance_id: manageIncidentAmbulanceSelect?.value || null,
+                hospital_id: manageIncidentHospitalSelect?.value || null, // Ensure backend uses hospital_id
+                status: manageIncidentStatus?.value
+            };
+
+            const url = `${API_URL}/incidents/${incidentId}`;
+            const method = 'PUT';
+
+            try {
+                const response = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                if (!response.ok) { const errData = await response.json(); throw new Error(errData.error || `HTTP error! status: ${response.status}`); }
+                hideManageIncidentModal(); showMessage('Success', `Incident #${incidentId} updated.`); loadInitialData();
+            } catch (error) { console.error('Error updating incident:', error); if(manageIncidentFormError) { manageIncidentFormError.textContent = `Error: ${error.message}`; manageIncidentFormError.classList.remove('hidden');} }
+        }
+
 
         // --- Event Listeners ---
-        // Run loadInitialData only after the DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
-            console.log("DOM fully loaded. Attaching event listeners..."); // <-- DEBUG LOG
+            console.log("DOM fully loaded. Attaching event listeners...");
 
-            // Ensure elements exist before adding listeners
-            if (newIncidentBtn) newIncidentBtn.addEventListener('click', showIncidentModal);
-            if (cancelIncidentBtn) cancelIncidentBtn.addEventListener('click', hideIncidentModal);
-            if (incidentForm) incidentForm.addEventListener('submit', handleIncidentSubmit);
+            // Ensure elements exist before adding listeners (important!)
+            try {
+                if (newIncidentBtn) newIncidentBtn.addEventListener('click', showIncidentModal); else console.warn("newIncidentBtn not found");
+                if (cancelIncidentBtn) cancelIncidentBtn.addEventListener('click', hideIncidentModal); else console.warn("cancelIncidentBtn not found");
+                if (incidentForm) incidentForm.addEventListener('submit', handleIncidentSubmit); else console.warn("incidentForm not found");
 
-            if (closeVitalsBtn) closeVitalsBtn.addEventListener('click', hideVitalsModal);
+                if (closeVitalsBtn) closeVitalsBtn.addEventListener('click', hideVitalsModal); else console.warn("closeVitalsBtn not found");
 
-            if (addAmbulanceBtn) addAmbulanceBtn.addEventListener('click', () => openAmbulanceModal(null));
-            if (cancelAmbulanceBtn) cancelAmbulanceBtn.addEventListener('click', hideAmbulanceModal);
-            if (ambulanceForm) ambulanceForm.addEventListener('submit', handleAmbulanceSubmit);
-            if (deleteAmbulanceBtn) deleteAmbulanceBtn.addEventListener('click', handleAmbulanceDelete);
+                if (addAmbulanceBtn) addAmbulanceBtn.addEventListener('click', () => openAmbulanceModal(null)); else console.warn("addAmbulanceBtn not found");
+                if (cancelAmbulanceBtn) cancelAmbulanceBtn.addEventListener('click', hideAmbulanceModal); else console.warn("cancelAmbulanceBtn not found");
+                if (ambulanceForm) ambulanceForm.addEventListener('submit', handleAmbulanceSubmit); else console.warn("ambulanceForm not found");
+                if (deleteAmbulanceBtn) deleteAmbulanceBtn.addEventListener('click', handleAmbulanceDelete); else console.warn("deleteAmbulanceBtn not found");
 
-            if (addHospitalBtn) addHospitalBtn.addEventListener('click', () => openHospitalModal(null));
-            if (cancelHospitalBtn) cancelHospitalBtn.addEventListener('click', hideHospitalModal);
-            if (hospitalForm) hospitalForm.addEventListener('submit', handleHospitalSubmit);
-            if (deleteHospitalBtn) deleteHospitalBtn.addEventListener('click', handleHospitalDelete);
+                if (addHospitalBtn) addHospitalBtn.addEventListener('click', () => openHospitalModal(null)); else console.warn("addHospitalBtn not found");
+                if (cancelHospitalBtn) cancelHospitalBtn.addEventListener('click', hideHospitalModal); else console.warn("cancelHospitalBtn not found");
+                if (hospitalForm) hospitalForm.addEventListener('submit', handleHospitalSubmit); else console.warn("hospitalForm not found");
+                if (deleteHospitalBtn) deleteHospitalBtn.addEventListener('click', handleHospitalDelete); else console.warn("deleteHospitalBtn not found");
 
-            if (msgOkBtn) msgOkBtn.addEventListener('click', hideMessageBox);
+                 // Manage Incident Listeners (NEW)
+                if (cancelManageIncidentBtn) cancelManageIncidentBtn.addEventListener('click', hideManageIncidentModal); else console.warn("cancelManageIncidentBtn not found");
+                if (manageIncidentForm) manageIncidentForm.addEventListener('submit', handleManageIncidentSubmit); else console.warn("manageIncidentForm not found");
 
-            console.log("Event listeners attached."); // <-- DEBUG LOG
 
-            // Load data *after* listeners are set up
-            loadInitialData();
+                if (msgOkBtn) msgOkBtn.addEventListener('click', hideMessageBox); else console.warn("msgOkBtn not found");
+
+                console.log("Event listeners attached.");
+                 loadInitialData(); // Load data *after* listeners are set up
+            } catch (error) {
+                console.error("Error attaching event listeners:", error);
+                showMessage("Initialization Error", "Could not set up the page interactions.");
+            }
         });
 
     </script>
