@@ -18,21 +18,27 @@
 
         /* Modal base styles */
         .modal {
-            display: none;
+            display: none; /* Hidden by default */
             opacity: 0;
             transition: opacity 0.3s ease-out;
+            position: fixed; /* Stay in place */
+            inset: 0; /* Cover the whole screen */
+            z-index: 50; /* Sit on top */
+            background-color: rgba(0, 0, 0, 0.5); /* Dimmed background */
+            align-items: center; /* Vertical center */
+            justify-content: center; /* Horizontal center */
         }
         .modal.active {
-            display: flex;
+            display: flex; /* Show the modal */
             opacity: 1;
         }
     </style>
 </head>
 <body class="bg-gray-100 font-sans">
-    
+
     <div class="flex h-screen">
         <!-- Sidebar -->
-        <aside class="w-72 bg-white shadow-md flex flex-col">
+        <aside class="w-72 bg-white shadow-md flex flex-col flex-shrink-0">
             <!-- Logo/Header -->
             <div class="p-5 border-b flex items-center justify-between">
                 <div class="flex items-center space-x-2">
@@ -42,8 +48,8 @@
                     <h1 class="text-xl font-bold text-gray-800">EMS</h1>
                 </div>
             </div>
-            
-            <!-- Main Sidebar Content: Available Ambulances -->
+
+            <!-- Main Sidebar Content: Manage Ambulances -->
             <div class="p-5 flex-1 overflow-y-auto">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Manage Units</h2>
@@ -52,11 +58,10 @@
                     </button>
                 </div>
                 <div id="ambulance-list" class="space-y-3">
-                    <!-- Ambulance items will be injected here by JS -->
                     <p class="text-gray-400">Loading units...</p>
                 </div>
             </div>
-            
+
             <!-- Sidebar Footer -->
             <div class="p-5 border-t">
                 <button id="new-incident-btn" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:bg-indigo-700 transition-colors duration-200 flex items-center justify-center space-x-2">
@@ -72,35 +77,38 @@
             <header class="bg-white border-b border-gray-200 p-4 shadow-sm">
                 <h1 class="text-2xl font-bold text-gray-800">Dispatcher Dashboard</h1>
             </header>
-            
+
             <!-- Main Content Grid -->
             <div class="flex-1 p-6 overflow-y-auto">
-                
+
                 <!-- Active Incidents Section -->
                 <div class="mb-4">
                     <h2 class="text-2xl font-semibold text-gray-800">Active Incidents</h2>
                 </div>
                 <div id="incident-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <!-- Incident cards will be injected here by JS -->
-                    <div class="text-center p-5 text-gray-500">Loading incidents...</div>
+                    <div class="text-center p-5 text-gray-500 col-span-full">Loading incidents...</div>
                 </div>
-                
+
                 <!-- Hospitals & Capacity Section -->
-                <div class="mt-10 mb-4">
+                <div class="mt-10 mb-4 flex justify-between items-center">
                     <h2 class="text-2xl font-semibold text-gray-800">Hospitals & Capacity</h2>
+                     <button id="add-hospital-btn" class="text-indigo-600 hover:text-indigo-800" title="Add New Hospital">
+                        <ion-icon name="add-circle" class="text-2xl"></ion-icon>
+                    </button>
                 </div>
                 <div id="hospital-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <!-- Hospital cards will be injected here by JS -->
-                    <div class="text-center p-5 text-gray-500">Loading hospitals...</div>
+                    <div class="text-center p-5 text-gray-500 col-span-full">Loading hospitals...</div>
                 </div>
 
             </div>
         </main>
     </div>
 
+    <!-- Modals (Placed outside the main flex container for stacking context) -->
+
     <!-- "New Incident" Modal -->
-    <div id="incident-modal" class="modal fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+    <div id="incident-modal" class="modal">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md m-4">
             <h2 class="text-2xl font-bold mb-6 text-gray-800">Log New Incident</h2>
             <form id="incident-form">
                 <div class="space-y-4">
@@ -127,36 +135,28 @@
     </div>
 
     <!-- "View Vitals" Modal -->
-    <div id="vitals-modal" class="modal fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg">
+    <div id="vitals-modal" class="modal">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg m-4">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-800">Live Patient Vitals</h2>
                 <button id="close-vitals-btn" class="text-gray-500 hover:text-gray-800">
                     <ion-icon name="close-circle" class="text-3xl"></ion-icon>
                 </button>
             </div>
-            <div id="vitals-content" class="space-y-4 max-h-96 overflow-y-auto">
+            <div id="vitals-content" class="space-y-4 max-h-96 overflow-y-auto pr-2">
+                <!-- Vitals content -->
             </div>
         </div>
     </div>
 
-    <!-- 
-        *********************************
-        ** NEW MODAL ADDED BELOW **
-        *********************************
-    -->
-
     <!-- "Manage Ambulance" Modal -->
-    <div id="ambulance-modal" class="modal fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+    <div id="ambulance-modal" class="modal">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md m-4">
             <h2 id="ambulance-modal-title" class="text-2xl font-bold mb-6 text-gray-800">Manage Ambulance</h2>
             <form id="ambulance-form">
-                <!-- Hidden input to store the ambulance ID for updates -->
                 <input type="hidden" id="ambulance-id-input" value="">
-                
                 <div class="space-y-4">
                     <input type="text" id="ambulance-plate" placeholder="License Plate (e.g., KA-01-AB-1234)" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    
                     <select id="ambulance-status" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="available">Available</option>
                         <option value="en_route_to_scene">En Route to Scene</option>
@@ -165,17 +165,14 @@
                         <option value="unavailable">Unavailable</option>
                         <option value="maintenance_required">Maintenance Required</option>
                     </select>
-
                     <div class="flex space-x-4">
                         <input type="text" id="ambulance-lat" placeholder="Current Latitude (Optional)" class="w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         <input type="text" id="ambulance-lon" placeholder="Current Longitude (Optional)" class="w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
-
                     <div id="ambulance-form-error" class="text-red-600 text-sm hidden"></div>
-
                     <div class="flex justify-between items-center pt-4">
                         <div>
-                            <button type="button" id="delete-ambulance-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                            <button type="button" id="delete-ambulance-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors hidden">
                                 Delete
                             </button>
                         </div>
@@ -191,12 +188,47 @@
         </div>
     </div>
 
+    <!-- "Manage Hospital" Modal -->
+     <div id="hospital-modal" class="modal">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg m-4">
+            <h2 id="hospital-modal-title" class="text-2xl font-bold mb-6 text-gray-800">Manage Hospital</h2>
+            <form id="hospital-form">
+                <input type="hidden" id="hospital-id-input" value="">
+                <div class="space-y-4">
+                    <input type="text" id="hospital-name" placeholder="Hospital Name" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" id="hospital-address" placeholder="Address (Optional)" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <div class="flex space-x-4">
+                        <input type="text" id="hospital-lat" placeholder="Latitude" required class="w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <input type="text" id="hospital-lon" placeholder="Longitude" required class="w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div class="flex space-x-4">
+                        <input type="number" id="hospital-er-capacity" placeholder="ER Capacity (Optional)" class="w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <input type="number" id="hospital-er-occupancy" placeholder="ER Occupancy (Optional)" class="w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div id="hospital-form-error" class="text-red-600 text-sm hidden"></div>
+                    <div class="flex justify-between items-center pt-4">
+                        <div>
+                            <button type="button" id="delete-hospital-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors hidden">
+                                Delete
+                            </button>
+                        </div>
+                        <div class="space-x-3">
+                            <button type="button" id="cancel-hospital" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">Cancel</button>
+                            <button type="submit" id="save-hospital-btn" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Custom Message Box for Errors/Success -->
-    <div id="message-box" class="modal fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-sm">
-            <h2 id="message-title" class="text-2xl font-bold mb-4 text-gray-800"></h2>
-            <p id="message-body" class="text-gray-600 mb-6"></p>
+    <div id="message-box" class="modal">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-sm m-4">
+            <h2 id="message-title" class="text-2xl font-bold mb-4 text-gray-800">Message</h2>
+            <p id="message-body" class="text-gray-600 mb-6">Something went wrong.</p>
             <button id="message-ok-btn" class="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">
                 OK
             </button>
@@ -206,10 +238,12 @@
 
     <!-- Main JavaScript Logic -->
     <script>
+        console.log("Script loaded."); // <-- DEBUG LOG
         // API Base URL
         const API_URL = 'http://127.0.0.1:5000/api';
 
         // --- All DOM Elements ---
+        // Ensure all elements exist before trying to access them
         const ambulanceList = document.getElementById('ambulance-list');
         const incidentGrid = document.getElementById('incident-grid');
         const hospitalGrid = document.getElementById('hospital-grid');
@@ -223,8 +257,7 @@
         const vitalsModal = document.getElementById('vitals-modal');
         const closeVitalsBtn = document.getElementById('close-vitals-btn');
         const vitalsContent = document.getElementById('vitals-content');
-        
-        // New Ambulance Modal Elements
+
         const addAmbulanceBtn = document.getElementById('add-ambulance-btn');
         const ambulanceModal = document.getElementById('ambulance-modal');
         const ambulanceModalTitle = document.getElementById('ambulance-modal-title');
@@ -239,7 +272,22 @@
         const deleteAmbulanceBtn = document.getElementById('delete-ambulance-btn');
         const saveAmbulanceBtn = document.getElementById('save-ambulance-btn');
 
-        // Message Box
+        const addHospitalBtn = document.getElementById('add-hospital-btn');
+        const hospitalModal = document.getElementById('hospital-modal');
+        const hospitalModalTitle = document.getElementById('hospital-modal-title');
+        const hospitalForm = document.getElementById('hospital-form');
+        const hospitalFormError = document.getElementById('hospital-form-error');
+        const hospitalIdInput = document.getElementById('hospital-id-input');
+        const hospitalName = document.getElementById('hospital-name');
+        const hospitalAddress = document.getElementById('hospital-address');
+        const hospitalLat = document.getElementById('hospital-lat');
+        const hospitalLon = document.getElementById('hospital-lon');
+        const hospitalErCapacity = document.getElementById('hospital-er-capacity');
+        const hospitalErOccupancy = document.getElementById('hospital-er-occupancy');
+        const cancelHospitalBtn = document.getElementById('cancel-hospital');
+        const deleteHospitalBtn = document.getElementById('delete-hospital-btn');
+        const saveHospitalBtn = document.getElementById('save-hospital-btn');
+
         const msgBox = document.getElementById('message-box');
         const msgTitle = document.getElementById('message-title');
         const msgBody = document.getElementById('message-body');
@@ -249,19 +297,29 @@
         let allAmbulances = [];
         let allHospitals = [];
 
-        /**
-         * Shows a custom message box instead of alert()
-         */
+        /** Shows a custom message box */
         function showMessage(title, message) {
-            msgTitle.textContent = title;
-            msgBody.textContent = message;
-            msgBox.classList.add('active');
+            console.log("Showing message:", title, message); // <-- DEBUG LOG
+            if (msgTitle && msgBody && msgBox) {
+                msgTitle.textContent = title;
+                msgBody.textContent = message;
+                msgBox.classList.add('active');
+            } else {
+                console.error("Message box elements not found!");
+            }
         }
 
-        /**
-         * Fetches all initial data and renders the dashboard
-         */
+        /** Hides the custom message box */
+        function hideMessageBox() {
+            console.log("Hiding message box"); // <-- DEBUG LOG
+            if (msgBox) {
+                msgBox.classList.remove('active');
+            }
+        }
+
+        /** Fetches all initial data and renders the dashboard */
         async function loadInitialData() {
+            console.log("Loading initial data..."); // <-- DEBUG LOG
             try {
                 const [ambResponse, incResponse, hospResponse] = await Promise.all([
                     fetch(`${API_URL}/ambulances`),
@@ -270,12 +328,14 @@
                 ]);
 
                 if (!ambResponse.ok || !incResponse.ok || !hospResponse.ok) {
-                    throw new Error('Failed to fetch initial data.');
+                    throw new Error(`Failed to fetch initial data. Status: ${ambResponse.status}, ${incResponse.status}, ${hospResponse.status}`);
                 }
 
                 allAmbulances = await ambResponse.json();
                 const incidents = await incResponse.json();
                 allHospitals = await hospResponse.json();
+
+                console.log("Data fetched:", { ambulances: allAmbulances.length, incidents: incidents.length, hospitals: allHospitals.length }); // <-- DEBUG LOG
 
                 renderAmbulances(allAmbulances);
                 renderIncidents(incidents);
@@ -283,413 +343,334 @@
                 populateDropdowns(allAmbulances, allHospitals);
 
             } catch (error) {
-                console.error(error);
-                showMessage('Network Error', 'Failed to connect to the EMS API. Is the server running?');
+                console.error("Error in loadInitialData:", error); // <-- More specific error log
+                showMessage('Network Error', `Failed to connect to the EMS API. ${error.message}`);
             }
         }
 
-        /**
-         * Renders the list of ambulances in the sidebar
-         */
+        /** Renders the list of ambulances in the sidebar */
         function renderAmbulances(ambulances) {
-            ambulanceList.innerHTML = ''; // Clear "Loading..."
-
+             if (!ambulanceList) return; // Guard clause
+            ambulanceList.innerHTML = '';
             if (ambulances.length === 0) {
-                ambulanceList.innerHTML = '<p class="text-gray-500">No units in system.</p>';
-                return;
+                ambulanceList.innerHTML = '<p class="text-gray-500">No units in system.</p>'; return;
             }
-
-            // Sort by ID
             ambulances.sort((a, b) => a.id - b.id);
-
             ambulances.forEach(amb => {
                 let statusColor = 'bg-gray-100 text-gray-800';
                 if (amb.status === 'available') statusColor = 'bg-green-100 text-green-800';
-                if (amb.status.includes('en_route')) statusColor = 'bg-blue-100 text-blue-800';
+                if (amb.status?.includes('en_route')) statusColor = 'bg-blue-100 text-blue-800';
                 if (amb.status === 'at_scene') statusColor = 'bg-yellow-100 text-yellow-800';
-                if (amb.status === 'unavailable' || amb.status.includes('maintenance')) statusColor = 'bg-red-100 text-red-800';
+                if (amb.status === 'unavailable' || amb.status?.includes('maintenance')) statusColor = 'bg-red-100 text-red-800';
 
-                const ambItem = `
-                <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                const div = document.createElement('div');
+                div.className = "bg-gray-50 p-3 rounded-lg border border-gray-200";
+                div.innerHTML = `
                     <div class="flex justify-between items-center">
                         <span class="font-semibold text-gray-700">${amb.license_plate}</span>
                         <span class="text-xs font-medium ${statusColor} px-2 py-0.5 rounded-full">${amb.status}</span>
                     </div>
                     <div class="text-sm text-gray-500 mt-2 flex justify-between items-center">
                         <span>ID: ${amb.id}</span>
-                        <button class="text-xs text-indigo-600 font-semibold hover:underline" onclick="openAmbulanceModal(${amb.id})">
+                        <button class="text-xs text-indigo-600 font-semibold hover:underline manage-ambulance-btn" data-id="${amb.id}">
                             Manage
                         </button>
-                    </div>
-                </div>
-                `;
-                ambulanceList.innerHTML += ambItem;
+                    </div>`;
+                // Add event listener directly to the button
+                 const manageBtn = div.querySelector('.manage-ambulance-btn');
+                 if (manageBtn) {
+                    manageBtn.addEventListener('click', () => openAmbulanceModal(amb.id));
+                 }
+                ambulanceList.appendChild(div);
             });
         }
 
-        /**
-         * Renders the grid of active incidents
-         */
+        /** Renders the grid of active incidents */
         function renderIncidents(incidents) {
+             if (!incidentGrid) return; // Guard clause
             incidentGrid.innerHTML = '';
-            const activeIncidents = incidents.filter(i => i.status.toLowerCase() === 'active');
-            
+            const activeIncidents = incidents.filter(i => i.status?.toLowerCase() === 'active');
             if (activeIncidents.length === 0) {
-                incidentGrid.innerHTML = '<p class="text-gray-500">No active incidents.</p>';
-                return;
+                incidentGrid.innerHTML = '<p class="text-gray-500 col-span-full">No active incidents.</p>'; return;
             }
-            
-            // Sort by newest first
             activeIncidents.sort((a, b) => new Date(b.incident_time) - new Date(a.incident_time));
-
             activeIncidents.forEach(inc => {
-                const card = `
-                <div class="bg-white p-5 rounded-lg shadow-md border border-gray-100">
+                const div = document.createElement('div');
+                div.className = "bg-white p-5 rounded-lg shadow-md border border-gray-100";
+                div.innerHTML = `
                     <div class="flex justify-between items-center mb-3">
                         <h3 class="text-lg font-semibold text-gray-900">Incident #${inc.id}</h3>
                         <span class="text-xs font-medium bg-red-100 text-red-800 px-2 py-0.5 rounded-full">${inc.status}</span>
                     </div>
                     <p class="text-sm text-gray-600 mb-4 truncate">${inc.description || 'No description provided.'}</p>
                     <div class="space-y-2 text-sm text-gray-700">
-                        <div class="flex items-center space-x-2">
-                            <ion-icon name="location-sharp" class="text-indigo-500"></ion-icon>
-                            <span>${inc.latitude}, ${inc.longitude}</span>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <ion-icon name="medkit-sharp" class="text-green-500"></ion-icon>
-                            <span>Ambulance: ${inc.ambulance_id || 'N/A'}</span>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <ion-icon name="business-sharp" class="text-blue-500"></ion-icon>
-                            <span>Hospital: ${inc.destination_hospital_id || 'N/A'}</span>
-                        </div>
+                        <div class="flex items-center space-x-2"><ion-icon name="location-sharp" class="text-indigo-500"></ion-icon><span>${inc.latitude}, ${inc.longitude}</span></div>
+                        <div class="flex items-center space-x-2"><ion-icon name="medkit-sharp" class="text-green-500"></ion-icon><span>Ambulance: ${inc.ambulance_id || 'N/A'}</span></div>
+                        <div class="flex items-center space-x-2"><ion-icon name="business-sharp" class="text-blue-500"></ion-icon><span>Hospital: ${inc.destination_hospital_id || 'N/A'}</span></div>
                     </div>
                     <div class="mt-4 pt-4 border-t border-gray-100">
-                        <button class="w-full text-indigo-600 font-semibold py-2 px-4 rounded-lg hover:bg-indigo-50 transition-colors" onclick="showVitals(${inc.id})">
+                        <button class="w-full text-indigo-600 font-semibold py-2 px-4 rounded-lg hover:bg-indigo-50 transition-colors show-vitals-btn" data-id="${inc.id}">
                             Show Vitals
                         </button>
-                    </div>
-                </div>
-                `;
-                incidentGrid.innerHTML += card;
+                    </div>`;
+                // Add event listener directly
+                const vitalsBtn = div.querySelector('.show-vitals-btn');
+                if(vitalsBtn) {
+                    vitalsBtn.addEventListener('click', () => showVitals(inc.id));
+                }
+                incidentGrid.appendChild(div);
             });
         }
 
-        /**
-         * Renders the grid of hospitals and their ER capacity
-         */
+        /** Renders the grid of hospitals */
         function renderHospitals(hospitals) {
-            hospitalGrid.innerHTML = ''; 
-
+             if (!hospitalGrid) return; // Guard clause
+            hospitalGrid.innerHTML = '';
             if (!hospitals || hospitals.length === 0) {
-                hospitalGrid.innerHTML = '<p class="text-gray-500">No hospitals found in the system.</p>';
-                return;
+                hospitalGrid.innerHTML = '<p class="text-gray-500 col-span-full">No hospitals found.</p>'; return;
             }
-            
             hospitals.sort((a, b) => a.id - b.id);
-
             hospitals.forEach(hospital => {
                 let capacityHtml = '<span class="text-xs text-gray-400">Capacity N/A</span>';
-                
                 if (hospital.er_capacity != null && hospital.er_current_occupancy != null) {
                     const capacity = parseInt(hospital.er_capacity);
                     const occupancy = parseInt(hospital.er_current_occupancy);
-                    let occupancyPercentage = 0;
-                    if (capacity > 0) {
-                        occupancyPercentage = (occupancy / capacity) * 100;
-                    }
-                    
+                    let occupancyPercentage = capacity > 0 ? (occupancy / capacity) * 100 : 0;
                     let capacityColor = 'bg-green-100 text-green-800';
                     if (occupancyPercentage > 70) capacityColor = 'bg-yellow-100 text-yellow-800';
                     if (occupancyPercentage >= 90) capacityColor = 'bg-red-100 text-red-800';
-                    
-                    capacityHtml = `
-                    <span class="text-xs font-medium px-2 py-0.5 rounded-full ${capacityColor}">
-                        ER: ${occupancy} / ${capacity}
-                    </span>
-                    `;
+                    capacityHtml = `<span class="text-xs font-medium px-2 py-0.5 rounded-full ${capacityColor}">ER: ${occupancy} / ${capacity}</span>`;
                 }
 
-                const card = `
-                <div class="bg-white p-5 rounded-lg shadow-md border border-gray-100">
-                    <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-lg font-semibold text-gray-900 truncate">${hospital.name}</h3>
+                const div = document.createElement('div');
+                div.className = "bg-white p-5 rounded-lg shadow-md border border-gray-100";
+                div.innerHTML = `
+                    <div class="flex justify-between items-start mb-3">
+                        <h3 class="text-lg font-semibold text-gray-900 truncate mr-2">${hospital.name}</h3>
                         ${capacityHtml}
                     </div>
                     <p class="text-sm text-gray-600 truncate">${hospital.address || 'Address not available'}</p>
-                    <div class="text-sm text-gray-400 mt-2">
-                        <span class="font-medium">ID: ${hospital.id}</span> | 
-                        <span class="text-gray-500">${hospital.latitude}, ${hospital.longitude}</span>
-                    </div>
-                </div>
-                `;
-                hospitalGrid.innerHTML += card;
+                    <div class="text-sm text-gray-400 mt-2 flex justify-between items-center">
+                       <div>
+                           <span class="font-medium">ID: ${hospital.id}</span> |
+                           <span class="text-gray-500">${hospital.latitude}, ${hospital.longitude}</span>
+                       </div>
+                        <button class="text-xs text-indigo-600 font-semibold hover:underline manage-hospital-btn" data-id="${hospital.id}">
+                            Manage
+                        </button>
+                    </div>`;
+                // Add event listener directly
+                const manageBtn = div.querySelector('.manage-hospital-btn');
+                if(manageBtn) {
+                   manageBtn.addEventListener('click', () => openHospitalModal(hospital.id));
+                }
+                hospitalGrid.appendChild(div);
             });
         }
 
-
-        /**
-         * Populates the "New Incident" form dropdowns
-         */
+        /** Populates dropdowns in the incident form */
         function populateDropdowns(ambulances, hospitals) {
+             if (!ambSelect || !hospSelect) return; // Guard clause
             ambSelect.innerHTML = '<option value="">Assign Ambulance (Optional)</option>';
             ambulances.filter(a => a.status === 'available').forEach(amb => {
                 ambSelect.innerHTML += `<option value="${amb.id}">${amb.license_plate} (ID: ${amb.id})</option>`;
             });
-
             hospSelect.innerHTML = '<option value="">Assign Hospital (Optional)</option>';
             hospitals.forEach(hosp => {
                 hospSelect.innerHTML += `<option value="${hosp.id}">${hosp.name} (ID: ${hosp.id})</option>`;
             });
         }
 
-        // --- Incident Modal Functions ---
+        // --- Incident Modal ---
         function showIncidentModal() {
-            incidentForm.reset();
-            incidentFormError.classList.add('hidden');
-            incidentModal.classList.add('active');
+            console.log("showIncidentModal called"); // <-- DEBUG LOG
+            if (incidentForm) incidentForm.reset();
+            if (incidentFormError) incidentFormError.classList.add('hidden');
+            if (incidentModal) incidentModal.classList.add('active');
         }
-
         function hideIncidentModal() {
-            incidentModal.classList.remove('active');
+             console.log("hideIncidentModal called"); // <-- DEBUG LOG
+             if (incidentModal) incidentModal.classList.remove('active');
         }
-
         async function handleIncidentSubmit(e) {
+             console.log("handleIncidentSubmit called"); // <-- DEBUG LOG
             e.preventDefault();
-            incidentFormError.classList.add('hidden');
-
+             if (incidentFormError) incidentFormError.classList.add('hidden');
             const incidentData = {
-                patient_name: document.getElementById('patient-name').value || null,
-                location_lat: document.getElementById('latitude').value,
-                location_lon: document.getElementById('longitude').value,
-                description: document.getElementById('description').value || null,
-                ambulance_id: document.getElementById('ambulance-select').value || null,
-                hospital_id: document.getElementById('hospital-select').value || null,
+                patient_name: document.getElementById('patient-name')?.value || null,
+                location_lat: document.getElementById('latitude')?.value,
+                location_lon: document.getElementById('longitude')?.value,
+                description: document.getElementById('description')?.value || null,
+                ambulance_id: ambSelect?.value || null,
+                hospital_id: hospSelect?.value || null,
                 dispatcher_id: 1 // Hard-code dispatcher 1
             };
-
-            try {
-                const response = await fetch(`${API_URL}/incidents`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(incidentData)
-                });
-
-                if (!response.ok) {
-                    const errData = await response.json();
-                    throw new Error(errData.error || `HTTP error! status: ${response.status}`);
-                }
-
-                hideIncidentModal();
-                showMessage('Success', 'A new incident has been successfully logged.');
-                loadInitialData(); // Refresh all data
-
-            } catch (error) {
-                console.error('Error creating incident:', error);
-                incidentFormError.textContent = `Error: ${error.message}`;
-                incidentFormError.classList.remove('hidden');
+             // Basic validation
+            if (!incidentData.location_lat || !incidentData.location_lon) {
+                 showMessage("Validation Error", "Latitude and Longitude are required.");
+                 return;
             }
+            try {
+                const response = await fetch(`${API_URL}/incidents`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(incidentData) });
+                if (!response.ok) { const errData = await response.json(); throw new Error(errData.error || `HTTP error! status: ${response.status}`); }
+                hideIncidentModal(); showMessage('Success', 'New incident logged.'); loadInitialData();
+            } catch (error) { console.error('Error creating incident:', error); if (incidentFormError) { incidentFormError.textContent = `Error: ${error.message}`; incidentFormError.classList.remove('hidden'); } }
         }
 
-        // --- Vitals Modal Functions ---
+        // --- Vitals Modal ---
         async function showVitals(incidentId) {
-            vitalsContent.innerHTML = '<p class="text-gray-500">Loading vitals...</p>';
-            vitalsModal.classList.add('active');
-            
+            console.log("showVitals called for incident ID:", incidentId); // <-- DEBUG LOG
+            if (!vitalsContent || !vitalsModal) return;
+            vitalsContent.innerHTML = '<p class="text-gray-500">Loading vitals...</p>'; vitalsModal.classList.add('active');
             try {
-                const response = await fetch(`${API_URL}/incidents/${incidentId}/vitals`);
-                if (!response.ok) throw new Error('Failed to fetch vitals.');
-                
+                const response = await fetch(`${API_URL}/incidents/${incidentId}/vitals`); if (!response.ok) throw new Error(`Failed to fetch vitals. Status: ${response.status}`);
                 const vitals = await response.json();
-                
-                if (vitals.length === 0) {
-                    vitalsContent.innerHTML = '<p class="text-gray-500">No vitals logged for this incident.</p>';
-                    return;
-                }
-
-                vitalsContent.innerHTML = '';
-                vitals.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Show newest first
-                
+                if (vitals.length === 0) { vitalsContent.innerHTML = '<p class="text-gray-500">No vitals logged.</p>'; return; }
+                vitalsContent.innerHTML = ''; vitals.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
                 vitals.forEach(v => {
-                    const vitalEntry = `
-                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <div class="text-sm text-gray-500 mb-2">${new Date(v.timestamp).toLocaleString()}</div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div class="font-medium text-gray-700">Heart Rate:</div> <div>${v.heart_rate || 'N/A'} bpm</div>
-                            <div class="font-medium text-gray-700">Blood Pressure:</div> <div>${v.blood_pressure_systolic || 'N/A'} / ${v.blood_pressure_diastolic || 'N/A'}</div>
-                            <div class="font-medium text-gray-700">Oxygen Sat:</div> <div>${v.oxygen_saturation || 'N/A'} %</div>
-                        </div>
-                    </div>
-                    `;
-                    vitalsContent.innerHTML += vitalEntry;
+                    vitalsContent.innerHTML += `<div class="bg-gray-50 p-4 rounded-lg border border-gray-200"><div class="text-sm text-gray-500 mb-2">${new Date(v.timestamp).toLocaleString()}</div><div class="grid grid-cols-2 gap-2"><div class="font-medium text-gray-700">Heart Rate:</div><div>${v.heart_rate || 'N/A'} bpm</div><div class="font-medium text-gray-700">Blood Pressure:</div><div>${v.blood_pressure_systolic || 'N/A'} / ${v.blood_pressure_diastolic || 'N/A'}</div><div class="font-medium text-gray-700">Oxygen Sat:</div><div>${v.oxygen_saturation || 'N/A'} %</div></div></div>`;
                 });
-
-            } catch (error) {
-                console.error(error);
-                vitalsContent.innerHTML = '<p class="text-red-500">Could not load vitals.</p>';
-            }
+            } catch (error) { console.error("Error in showVitals:", error); vitalsContent.innerHTML = `<p class="text-red-500">Could not load vitals: ${error.message}</p>`; }
         }
-
         function hideVitalsModal() {
-            vitalsModal.classList.remove('active');
+            console.log("hideVitalsModal called"); // <-- DEBUG LOG
+             if(vitalsModal) vitalsModal.classList.remove('active');
         }
 
-        // --- MessageBox Functions ---
-        function hideMessageBox() {
-            msgBox.classList.remove('active');
-        }
-
-        /**
-         * *********************************
-         * ** NEW FUNCTIONS ADDED BELOW **
-         * *********************************
-         */
-
-        // --- Ambulance Modal Functions ---
-
-        /**
-         * Opens the ambulance modal.
-         * If no id is passed, it's in 'Add' mode.
-         * If an id is passed, it finds the ambulance and enters 'Edit' mode.
-         */
+        // --- Ambulance Modal ---
         function openAmbulanceModal(ambulanceId = null) {
-            ambulanceForm.reset();
-            ambulanceFormError.classList.add('hidden');
-            
-            if (ambulanceId) {
-                // --- UPDATE MODE ---
-                const ambulance = allAmbulances.find(a => a.id === ambulanceId);
-                if (!ambulance) {
-                    showMessage('Error', `Could not find ambulance with ID ${ambulanceId}`);
-                    return;
-                }
-                ambulanceModalTitle.textContent = 'Manage Ambulance';
-                ambulanceIdInput.value = ambulance.id;
-                ambulancePlate.value = ambulance.license_plate;
-                ambulanceStatus.value = ambulance.status;
-                ambulanceLat.value = ambulance.latitude || '';
-                ambulanceLon.value = ambulance.longitude || '';
-                deleteAmbulanceBtn.classList.remove('hidden');
-                saveAmbulanceBtn.textContent = 'Update';
-
-            } else {
-                // --- ADD MODE ---
-                ambulanceModalTitle.textContent = 'Add New Ambulance';
-                ambulanceIdInput.value = ''; // Ensure ID is blank
-                deleteAmbulanceBtn.classList.add('hidden'); // Hide delete button
-                saveAmbulanceBtn.textContent = 'Save';
+            console.log("openAmbulanceModal called with ID:", ambulanceId); // <-- DEBUG LOG
+            if (!ambulanceForm || !ambulanceFormError || !ambulanceModal || !ambulanceIdInput || !ambulancePlate || !ambulanceStatus || !ambulanceLat || !ambulanceLon || !deleteAmbulanceBtn || !saveAmbulanceBtn || !ambulanceModalTitle) return; // Guard clause
+            ambulanceForm.reset(); ambulanceFormError.classList.add('hidden');
+            if (ambulanceId) { // Update mode
+                const ambulance = allAmbulances.find(a => a.id === ambulanceId); if (!ambulance) { showMessage('Error', `Ambulance ID ${ambulanceId} not found`); return; }
+                ambulanceModalTitle.textContent = 'Manage Ambulance'; ambulanceIdInput.value = ambulance.id; ambulancePlate.value = ambulance.license_plate; ambulanceStatus.value = ambulance.status;
+                ambulanceLat.value = ambulance.latitude || ''; ambulanceLon.value = ambulance.longitude || ''; deleteAmbulanceBtn.classList.remove('hidden'); saveAmbulanceBtn.textContent = 'Update';
+            } else { // Add mode
+                ambulanceModalTitle.textContent = 'Add New Ambulance'; ambulanceIdInput.value = ''; deleteAmbulanceBtn.classList.add('hidden'); saveAmbulanceBtn.textContent = 'Save';
             }
-            
             ambulanceModal.classList.add('active');
         }
-
         function hideAmbulanceModal() {
-            ambulanceModal.classList.remove('active');
+            console.log("hideAmbulanceModal called"); // <-- DEBUG LOG
+             if (ambulanceModal) ambulanceModal.classList.remove('active');
         }
-
-        /**
-         * Handles the submission of the "Manage Ambulance" form.
-         * It will either POST (create) or PUT (update) based on if an ID is present.
-         */
         async function handleAmbulanceSubmit(e) {
-            e.preventDefault();
-            ambulanceFormError.classList.add('hidden');
-
-            const ambulanceId = ambulanceIdInput.value;
-            const isUpdate = !!ambulanceId; // If there's an ID, it's an update
-
-            const data = {
-                license_plate: ambulancePlate.value,
-                status: ambulanceStatus.value,
-                latitude: ambulanceLat.value || null,
-                longitude: ambulanceLon.value || null
-            };
-
-            const url = isUpdate ? `${API_URL}/ambulances/${ambulanceId}` : `${API_URL}/ambulances`;
-            const method = isUpdate ? 'PUT' : 'POST';
-
-            try {
-                const response = await fetch(url, {
-                    method: method,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                if (!response.ok) {
-                    const errData = await response.json();
-                    throw new Error(errData.error || `HTTP error! status: ${response.status}`);
-                }
-
-                hideAmbulanceModal();
-                showMessage('Success', `Ambulance successfully ${isUpdate ? 'updated' : 'added'}.`);
-                loadInitialData(); // Refresh all data
-
-            } catch (error) {
-                console.error('Error saving ambulance:', error);
-                ambulanceFormError.textContent = `Error: ${error.message}`;
-                ambulanceFormError.classList.remove('hidden');
-            }
-        }
-
-        /**
-         * Handles the deletion of an ambulance.
-         */
-        async function handleAmbulanceDelete() {
-            const ambulanceId = ambulanceIdInput.value;
-            if (!ambulanceId) return;
-
-            // Simple confirmation before deleting
-            if (!confirm(`Are you sure you want to delete ambulance ID ${ambulanceId}?`)) {
+            console.log("handleAmbulanceSubmit called"); // <-- DEBUG LOG
+            e.preventDefault(); if(ambulanceFormError) ambulanceFormError.classList.add('hidden');
+            const ambulanceId = ambulanceIdInput?.value; const isUpdate = !!ambulanceId;
+            const data = { license_plate: ambulancePlate?.value, status: ambulanceStatus?.value, latitude: ambulanceLat?.value || null, longitude: ambulanceLon?.value || null };
+             // Basic validation
+            if (!data.license_plate) {
+                showMessage("Validation Error", "License Plate is required.");
                 return;
             }
-
+            const url = isUpdate ? `${API_URL}/ambulances/${ambulanceId}` : `${API_URL}/ambulances`; const method = isUpdate ? 'PUT' : 'POST';
             try {
-                const response = await fetch(`${API_URL}/ambulances/${ambulanceId}`, {
-                    method: 'DELETE'
-                });
-
-                if (!response.ok) {
-                    // Check for 204 No Content, which is a success for DELETE
-                    if (response.status === 204) {
-                         // This is a success
-                    } else {
-                        const errData = await response.json();
-                        throw new Error(errData.error || `HTTP error! status: ${response.status}`);
-                    }
+                const response = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                if (!response.ok) { const errData = await response.json(); throw new Error(errData.error || `HTTP error! status: ${response.status}`); }
+                hideAmbulanceModal(); showMessage('Success', `Ambulance ${isUpdate ? 'updated' : 'added'}.`); loadInitialData();
+            } catch (error) { console.error('Error saving ambulance:', error); if(ambulanceFormError){ ambulanceFormError.textContent = `Error: ${error.message}`; ambulanceFormError.classList.remove('hidden');} }
+        }
+        async function handleAmbulanceDelete() {
+            console.log("handleAmbulanceDelete called"); // <-- DEBUG LOG
+            const ambulanceId = ambulanceIdInput?.value; if (!ambulanceId) return;
+            // Removed confirm()
+            try {
+                const response = await fetch(`${API_URL}/ambulances/${ambulanceId}`, { method: 'DELETE' });
+                if (!response.ok && response.status !== 204) {
+                    let errorMsg = `HTTP error! status: ${response.status}`;
+                    try { const errData = await response.json(); errorMsg = errData.error || errorMsg; } catch (e) { /* Ignore parsing error */ }
+                    throw new Error(errorMsg);
                 }
+                hideAmbulanceModal(); showMessage('Success', `Ambulance ID ${ambulanceId} deleted.`); loadInitialData();
+            } catch (error) { console.error('Error deleting ambulance:', error); if(ambulanceFormError){ ambulanceFormError.textContent = `Error: ${error.message}`; ambulanceFormError.classList.remove('hidden');} }
+        }
 
-                hideAmbulanceModal();
-                showMessage('Success', `Ambulance ID ${ambulanceId} has been deleted.`);
-                loadInitialData(); // Refresh all data
-
-            } catch (error) {
-                console.error('Error deleting ambulance:', error);
-                ambulanceFormError.textContent = `Error: ${error.message}`;
-                ambulanceFormError.classList.remove('hidden');
+        // --- Hospital Modal ---
+        function openHospitalModal(hospitalId = null) {
+            console.log("openHospitalModal called with ID:", hospitalId); // <-- DEBUG LOG
+             if (!hospitalForm || !hospitalFormError || !hospitalModal || !hospitalIdInput || !hospitalName || !hospitalAddress || !hospitalLat || !hospitalLon || !hospitalErCapacity || !hospitalErOccupancy || !deleteHospitalBtn || !saveHospitalBtn || !hospitalModalTitle) return; // Guard clause
+            hospitalForm.reset(); hospitalFormError.classList.add('hidden');
+            if (hospitalId) { // Update mode
+                const hospital = allHospitals.find(h => h.id === hospitalId); if (!hospital) { showMessage('Error', `Hospital ID ${hospitalId} not found`); return; }
+                hospitalModalTitle.textContent = 'Manage Hospital'; hospitalIdInput.value = hospital.id; hospitalName.value = hospital.name; hospitalAddress.value = hospital.address || '';
+                hospitalLat.value = hospital.latitude || ''; hospitalLon.value = hospital.longitude || ''; hospitalErCapacity.value = hospital.er_capacity || ''; hospitalErOccupancy.value = hospital.er_current_occupancy || '';
+                deleteHospitalBtn.classList.remove('hidden'); saveHospitalBtn.textContent = 'Update';
+            } else { // Add mode
+                hospitalModalTitle.textContent = 'Add New Hospital'; hospitalIdInput.value = ''; deleteHospitalBtn.classList.add('hidden'); saveHospitalBtn.textContent = 'Save';
             }
+            hospitalModal.classList.add('active');
+        }
+        function hideHospitalModal() {
+            console.log("hideHospitalModal called"); // <-- DEBUG LOG
+             if (hospitalModal) hospitalModal.classList.remove('active');
+        }
+        async function handleHospitalSubmit(e) {
+            console.log("handleHospitalSubmit called"); // <-- DEBUG LOG
+            e.preventDefault(); if (hospitalFormError) hospitalFormError.classList.add('hidden');
+            const hospitalId = hospitalIdInput?.value; const isUpdate = !!hospitalId;
+            const data = {
+                name: hospitalName?.value, address: hospitalAddress?.value || null, latitude: hospitalLat?.value, longitude: hospitalLon?.value,
+                er_capacity: hospitalErCapacity?.value || null, er_current_occupancy: hospitalErOccupancy?.value || null
+            };
+            if (!data.name || !data.latitude || !data.longitude) {
+                 showMessage("Validation Error", "Name, Latitude, and Longitude are required."); return;
+            }
+            const url = isUpdate ? `${API_URL}/hospitals/${hospitalId}` : `${API_URL}/hospitals`; const method = isUpdate ? 'PUT' : 'POST';
+            try {
+                const response = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                if (!response.ok) { const errData = await response.json(); throw new Error(errData.error || `HTTP error! status: ${response.status}`); }
+                hideHospitalModal(); showMessage('Success', `Hospital ${isUpdate ? 'updated' : 'added'}.`); loadInitialData();
+            } catch (error) { console.error('Error saving hospital:', error); if (hospitalFormError) { hospitalFormError.textContent = `Error: ${error.message}`; hospitalFormError.classList.remove('hidden'); } }
+        }
+         async function handleHospitalDelete() {
+             console.log("handleHospitalDelete called"); // <-- DEBUG LOG
+            const hospitalId = hospitalIdInput?.value; if (!hospitalId) return;
+             // Removed confirm()
+            try {
+                const response = await fetch(`${API_URL}/hospitals/${hospitalId}`, { method: 'DELETE' });
+                if (!response.ok && response.status !== 204) {
+                    let errorMsg = `HTTP error! status: ${response.status}`;
+                    try { const errData = await response.json(); errorMsg = errData.error || errorMsg; } catch(e) { /* Ignore */ }
+                    throw new Error(errorMsg);
+                }
+                hideHospitalModal(); showMessage('Success', `Hospital ID ${hospitalId} deleted.`); loadInitialData();
+            } catch (error) { console.error('Error deleting hospital:', error); if (hospitalFormError) { hospitalFormError.textContent = `Error: ${error.message}`; hospitalFormError.classList.remove('hidden'); } }
         }
 
 
         // --- Event Listeners ---
-        document.addEventListener('DOMContentLoaded', loadInitialData);
-        
-        // Incident Modal
-        newIncidentBtn.addEventListener('click', showIncidentModal);
-        cancelIncidentBtn.addEventListener('click', hideIncidentModal);
-        incidentForm.addEventListener('submit', handleIncidentSubmit);
-        
-        // Vitals Modal
-        closeVitalsBtn.addEventListener('click', hideVitalsModal);
-        
-        // Ambulance Modal (New)
-        addAmbulanceBtn.addEventListener('click', () => openAmbulanceModal(null)); // Pass null for "Add" mode
-        cancelAmbulanceBtn.addEventListener('click', hideAmbulanceModal);
-        ambulanceForm.addEventListener('submit', handleAmbulanceSubmit);
-        deleteAmbulanceBtn.addEventListener('click', handleAmbulanceDelete);
+        // Run loadInitialData only after the DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM fully loaded. Attaching event listeners..."); // <-- DEBUG LOG
 
-        // Message Box
-        msgOkBtn.addEventListener('click', hideMessageBox);
+            // Ensure elements exist before adding listeners
+            if (newIncidentBtn) newIncidentBtn.addEventListener('click', showIncidentModal);
+            if (cancelIncidentBtn) cancelIncidentBtn.addEventListener('click', hideIncidentModal);
+            if (incidentForm) incidentForm.addEventListener('submit', handleIncidentSubmit);
+
+            if (closeVitalsBtn) closeVitalsBtn.addEventListener('click', hideVitalsModal);
+
+            if (addAmbulanceBtn) addAmbulanceBtn.addEventListener('click', () => openAmbulanceModal(null));
+            if (cancelAmbulanceBtn) cancelAmbulanceBtn.addEventListener('click', hideAmbulanceModal);
+            if (ambulanceForm) ambulanceForm.addEventListener('submit', handleAmbulanceSubmit);
+            if (deleteAmbulanceBtn) deleteAmbulanceBtn.addEventListener('click', handleAmbulanceDelete);
+
+            if (addHospitalBtn) addHospitalBtn.addEventListener('click', () => openHospitalModal(null));
+            if (cancelHospitalBtn) cancelHospitalBtn.addEventListener('click', hideHospitalModal);
+            if (hospitalForm) hospitalForm.addEventListener('submit', handleHospitalSubmit);
+            if (deleteHospitalBtn) deleteHospitalBtn.addEventListener('click', handleHospitalDelete);
+
+            if (msgOkBtn) msgOkBtn.addEventListener('click', hideMessageBox);
+
+            console.log("Event listeners attached."); // <-- DEBUG LOG
+
+            // Load data *after* listeners are set up
+            loadInitialData();
+        });
 
     </script>
 </body>
 </html>
+
