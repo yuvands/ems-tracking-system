@@ -5,14 +5,10 @@ import datetime
 
 app = Flask(__name__)
 app.config.from_object(Config)
-# --- 1. ADD FLASK-CORS ---
+
 from flask_cors import CORS
-CORS(app) # Enable CORS for all routes
-# --- END CORS ADDITION ---
+CORS(app) 
 db = SQLAlchemy(app)
-
-
-## -- Models -- ##
 
 class Ambulance(db.Model):
     __tablename__ = 'ambulances'
