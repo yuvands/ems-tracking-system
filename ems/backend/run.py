@@ -75,7 +75,7 @@ class User(db.Model):
     hospital_id = db.Column(db.Integer, db.ForeignKey('hospitals.hospital_id'), nullable=True) # Link to hospital for staff
     staff_profile = db.relationship('Staff', back_populates='user', uselist=False, cascade="all, delete-orphan")
     
-    # --- FIX 1: Use back_populates ---
+    # --- FIX: Use back_populates ---
     hospital = db.relationship('Hospital', back_populates='staff_users')
 
     @validates('role')
@@ -161,7 +161,7 @@ class Hospital(db.Model):
     er_current_occupancy = db.Column(db.Integer, nullable=True, default=0)
     specialties = db.relationship('HospitalSpecialties', backref='hospital', lazy='dynamic', cascade="all, delete-orphan")
     
-    # --- FIX 2: Use back_populates ---
+    # --- FIX: Use back_populates ---
     staff_users = db.relationship('User', back_populates='hospital', lazy='dynamic')
 
     @validates('er_capacity', 'er_current_occupancy')
@@ -889,7 +889,6 @@ def seed_manipal_data():
             {'name': 'Kasturba Hospital, Manipal', 'address': 'Madhav Nagar, Manipal', 'latitude': 13.3512, 'longitude': 74.7819, 'er_capacity': 100, 'er_current_occupancy': 20},
             {'name': 'Dr. T.M.A. Pai Hospital, Udupi', 'address': 'Kunjibettu, Udupi', 'latitude': 13.3432, 'longitude': 74.7570, 'er_capacity': 50, 'er_current_occupancy': 10},
             {'name': 'Adarsh Hospital, Udupi', 'address': 'Kunjibettu, Udupi', 'latitude': 13.3445, 'longitude': 74.7585, 'er_capacity': 30, 'er_current_occupancy': 5},
-            {'name': 'KMC Hospital, Attavar, Mangalore', 'address': 'Attavar, Mangalore', 'latitude': 12.8628, 'longitude': 74.8396, 'er_capacity': 70, 'er_current_occupancy': 15}
         ]
         
         # --- Default Ambulance Data ---
@@ -934,7 +933,7 @@ def seed_manipal_data():
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error during data seeding: {e}", exc_info=True)
-        return jsonify(error=f"Internal error during seeding: {e}"), 500
+        return jsonify(error=f"Internal error during seeding: {str(e)}"), 500
 
 
 ## -- WebSocket Event Handlers -- ##
