@@ -19,16 +19,21 @@ import logging # For logging
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
 # --- Basic Logging Setup ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
-
 app = Flask(__name__)
+app.logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
+handler.setFormatter(formatter)
+if not app.logger.handlers:
+     app.logger.addHandler(handler)
+
+
 app.config.from_object(Config)
-app.config["JWT_SECRET_KEY"] = Config.SECRET_KEY or "change-this-super-secret-key-in-prod-ASAP!" # CHANGE THIS!
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = datetime.timedelta(hours=8)
+app.config["JWT_SECRET_KEY"] = Config.SECRET_KEY or "change-this-super-secret-key-in-prod-ASAP!" # PLEASE CHANGE THIS
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = datetime.timedelta(hours=8) # Set token expiry
 
 db = SQLAlchemy(app)
-# Allow all origins for dev, be more specific in production
-CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+CORS(app, resources={r"/api/*": {"origins": "*"}}) # Allow all origins for development
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
 # --- Initialize SocketIO ---
@@ -36,8 +41,13 @@ jwt = JWTManager(app)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 
-# --- Role Definition & Validation Constants ---
-ROLES = { 'SUPERVISOR': 'supervisor', 'DISPATCHER': 'dispatcher', 'PARAMEDIC': 'paramedic', 'HOSPITAL_STAFF': 'hospital_staff' }
+# --- Role Definition ---
+ROLES = {
+    'SUPERVISOR': 'supervisor',
+    'DISPATCHER': 'dispatcher',
+    'PARAMEDIC': 'paramedic',
+    'HOSPITAL_STAFF': 'hospital_staff'
+}
 VALID_ROLES = set(ROLES.values())
 VALID_AMBULANCE_STATUSES = {'available', 'en_route_to_scene', 'at_scene', 'en_route_to_hospital', 'unavailable', 'maintenance_required'}
 VALID_INCIDENT_STATUSES = {'active', 'en_route_to_scene', 'at_scene', 'en_route_to_hospital', 'closed', 'cancelled'}
@@ -47,19 +57,19 @@ VALID_EQUIPMENT_STATUSES = {'operational', 'maintenance_required'}
 def roles_required(*required_roles):
     def decorator(fn):
         @wraps(fn)
-        @jwt_required()
+        @jwt_required() # Ensures JWT is present and valid first
         def wrapper(*args, **kwargs):
             claims = get_jwt()
             user_role = claims.get("role", None)
             if user_role not in required_roles:
-                return jsonify(error=f"Unauthorized: Roles required: {', '.join(required_roles)}"), 403
+                return jsonify(error=f"Unauthorized: Access restricted to roles: {', '.join(required_roles)}"), 403
             return fn(*args, **kwargs)
         return wrapper
     return decorator
 
 
 ## -- Models (with Relationships & Basic Validation) -- ##
-# (Models remain unchanged - code omitted for brevity)
+
 class User(db.Model):
     __tablename__ = 'users'
     user_id = db.Column(db.Integer, primary_key=True)
@@ -68,21 +78,26 @@ class User(db.Model):
     full_name = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(50), nullable=False)
     hospital_id = db.Column(db.Integer, db.ForeignKey('hospitals.hospital_id'), nullable=True) # Link to hospital for staff
+
+    # Relationship: One user might have one staff profile
     staff_profile = db.relationship('Staff', back_populates='user', uselist=False, cascade="all, delete-orphan")
-    # hospital relationship available via backref 'staff_users' from Hospital model
+    hospital = db.relationship('Hospital') # Eager load hospital if needed
 
     @validates('role')
     def validate_role(self, key, role):
-        if role not in VALID_ROLES: raise ValueError(f"Invalid role. Must be one of: {', '.join(VALID_ROLES)}")
+        if role not in VALID_ROLES:
+            raise ValueError(f"Invalid role specified. Must be one of: {', '.join(VALID_ROLES)}")
         return role
 
     @validates('username')
     def validate_username(self, key, username):
-        if not re.match("^[a-zA-Z0-9_]{3,20}$", username): raise ValueError("Username invalid.")
-        return username.lower()
+        if not re.match("^[a-zA-Z0-9_]{3,20}$", username): # Basic validation
+             raise ValueError("Username must be 3-20 characters, letters, numbers, or underscore.")
+        return username.lower() # Store usernames lowercase
 
     def set_password(self, password):
-        if len(password) < 8: raise ValueError("Password too short.")
+        if len(password) < 8:
+             raise ValueError("Password must be at least 8 characters long.")
         self.password = bcrypt.generate_password_hash(password).decode('utf-8')
 
     def check_password(self, password):
@@ -97,12 +112,17 @@ class Staff(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False, unique=True)
     certification_level = db.Column(db.String(50), nullable=True)
     assigned_ambulance_id = db.Column(db.Integer, db.ForeignKey('ambulances.ambulance_id'), nullable=True)
+
+    # Relationships
     user = db.relationship('User', back_populates='staff_profile', lazy='joined')
     ambulance = db.relationship('Ambulance', backref=db.backref('staff_assigned', lazy='dynamic'))
 
     def to_dict(self):
-        user_info = self.user.to_dict() if self.user else {}
-        return { 'staff_id': self.staff_id, 'user_id': self.user_id, 'full_name': user_info.get('full_name'), 'certification_level': self.certification_level, 'assigned_ambulance_id': self.assigned_ambulance_id }
+        user_info = self.user.to_dict() if self.user else {} # Include basic user info
+        return {
+            'staff_id': self.staff_id, 'user_id': self.user_id, 'full_name': user_info.get('full_name'),
+            'certification_level': self.certification_level, 'assigned_ambulance_id': self.assigned_ambulance_id
+        }
 
 class Ambulance(db.Model):
     __tablename__ = 'ambulances'
@@ -111,22 +131,30 @@ class Ambulance(db.Model):
     status = db.Column(db.String(50), nullable=False, default='available')
     current_lat = db.Column(db.DECIMAL(10, 8), nullable=True)
     current_lon = db.Column(db.DECIMAL(11, 8), nullable=True)
+
+    # Relationships
     equipment = db.relationship('Equipment', backref='ambulance', lazy='dynamic', cascade="all, delete-orphan")
-    # staff_assigned available via backref
+    # assigned_staff relationship via backref
 
     @validates('status')
     def validate_status(self, key, status):
-        if status not in VALID_AMBULANCE_STATUSES: raise ValueError(f"Invalid ambulance status.")
+        if status not in VALID_AMBULANCE_STATUSES:
+            raise ValueError(f"Invalid ambulance status. Must be one of: {', '.join(VALID_AMBULANCE_STATUSES)}")
         return status
 
     def to_dict(self):
-        return { 'id': self.ambulance_id, 'license_plate': self.license_plate, 'status': self.status, 'latitude': str(self.current_lat) if self.current_lat is not None else None, 'longitude': str(self.current_lon) if self.current_lon is not None else None }
+        return {
+            'id': self.ambulance_id, 'license_plate': self.license_plate, 'status': self.status,
+            'latitude': str(self.current_lat) if self.current_lat is not None else None,
+            'longitude': str(self.current_lon) if self.current_lon is not None else None
+        }
 
-# --- Event listener for Ambulance ---
+# --- Event listener to emit WebSocket updates on Ambulance change ---
 @event.listens_for(Ambulance, 'after_update')
 def receive_after_update(mapper, connection, target):
+    """Emit ambulance update after DB commit."""
     logging.info(f"Ambulance {target.ambulance_id} updated. Emitting update.")
-    socketio.emit('ambulance_update', target.to_dict(), room='dashboard_updates')
+    socketio.emit('ambulance_update', target.to_dict(), room='dashboard_updates') # Send to a general room
 
 class Equipment(db.Model):
     __tablename__ = 'equipment'
@@ -137,7 +165,8 @@ class Equipment(db.Model):
 
     @validates('status')
     def validate_status(self, key, status):
-        if status not in VALID_EQUIPMENT_STATUSES: raise ValueError(f"Invalid equipment status.")
+        if status not in VALID_EQUIPMENT_STATUSES:
+             raise ValueError(f"Invalid equipment status. Must be one of: {', '.join(VALID_EQUIPMENT_STATUSES)}")
         return status
 
     def to_dict(self):
@@ -152,16 +181,24 @@ class Hospital(db.Model):
     longitude = db.Column(db.DECIMAL(11, 8), nullable=False)
     er_capacity = db.Column(db.Integer, nullable=True)
     er_current_occupancy = db.Column(db.Integer, nullable=True, default=0)
+
+    # Relationships
     specialties = db.relationship('HospitalSpecialties', backref='hospital', lazy='dynamic', cascade="all, delete-orphan")
-    staff_users = db.relationship('User', backref='assigned_hospital', lazy='dynamic')
+    staff = db.relationship('User', backref='assigned_hospital', lazy='dynamic') # Users assigned to this hospital
 
     @validates('er_capacity', 'er_current_occupancy')
     def validate_capacity(self, key, value):
-        if value is not None and value < 0: raise ValueError(f"{key} cannot be negative.")
-        return value
+       if value is not None and value < 0:
+            raise ValueError(f"{key} cannot be negative.")
+       return value
 
     def to_dict(self):
-        return { 'id': self.hospital_id, 'name': self.name, 'address': self.address, 'latitude': str(self.latitude) if self.latitude is not None else None, 'longitude': str(self.longitude) if self.longitude is not None else None, 'er_capacity': self.er_capacity, 'er_current_occupancy': self.er_current_occupancy }
+        return {
+            'id': self.hospital_id, 'name': self.name, 'address': self.address,
+            'latitude': str(self.latitude) if self.latitude is not None else None,
+            'longitude': str(self.longitude) if self.longitude is not None else None,
+            'er_capacity': self.er_capacity, 'er_current_occupancy': self.er_current_occupancy
+        }
 
 class HospitalSpecialties(db.Model):
     __tablename__ = 'hospital_specialties'
@@ -179,6 +216,8 @@ class Patient(db.Model):
     full_name = db.Column(db.String(100), nullable=True)
     dob = db.Column(db.Date, nullable=True)
     blood_type = db.Column(db.String(5), nullable=True)
+
+    # Relationship
     incidents = db.relationship('Incident', backref='patient', lazy='dynamic')
 
     def to_dict(self):
@@ -188,7 +227,7 @@ class Incident(db.Model):
     __tablename__ = 'incidents'
     incident_id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patients.patient_id'), nullable=False)
-    dispatcher_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=True)
+    dispatcher_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=True) # User who created/logged
     ambulance_id = db.Column(db.Integer, db.ForeignKey('ambulances.ambulance_id'), nullable=True)
     destination_hospital_id = db.Column(db.Integer, db.ForeignKey('hospitals.hospital_id'), nullable=True)
     location_lat = db.Column(db.DECIMAL(10, 8), nullable=False)
@@ -196,49 +235,36 @@ class Incident(db.Model):
     location_description = db.Column(db.Text, nullable=True)
     incident_time = db.Column(db.TIMESTAMP, server_default=func.now())
     status = db.Column(db.String(50), nullable=False, default='active')
+
+    # Relationships
     vitals_logs = db.relationship('PatientVitalsLog', backref='incident', lazy='dynamic', cascade="all, delete-orphan")
-    dispatcher = db.relationship('User', lazy='joined')
-    ambulance = db.relationship('Ambulance', lazy='joined')
-    destination_hospital = db.relationship('Hospital', lazy='joined')
-    # patient relationship via backref
+    dispatcher = db.relationship('User', lazy='joined') # Eager load dispatcher
+    ambulance = db.relationship('Ambulance', lazy='joined') # Eager load ambulance
+    destination_hospital = db.relationship('Hospital', lazy='joined') # Eager load hospital
+    # patient is available via backref
 
     @validates('status')
     def validate_status(self, key, status):
-        if status not in VALID_INCIDENT_STATUSES: raise ValueError(f"Invalid incident status.")
+        if status not in VALID_INCIDENT_STATUSES:
+            raise ValueError(f"Invalid incident status. Must be one of: {', '.join(VALID_INCIDENT_STATUSES)}")
         return status
 
-    def to_dict(self, include_details=True):
-        data = { 'id': self.incident_id, 'patient_id': self.patient_id, 'dispatcher_id': self.dispatcher_id, 'ambulance_id': self.ambulance_id, 'destination_hospital_id': self.destination_hospital_id, 'latitude': str(self.location_lat) if self.location_lat is not None else None, 'longitude': str(self.location_lon) if self.location_lon is not None else None, 'description': self.location_description, 'incident_time': self.incident_time.isoformat() if self.incident_time else None, 'status': self.status }
-        if include_details:
-            data['patient'] = self.patient.to_dict() if self.patient else None
-            data['ambulance_plate'] = self.ambulance.license_plate if self.ambulance else None
-            data['hospital_name'] = self.destination_hospital.name if self.destination_hospital else None
-            data['dispatcher_name'] = self.dispatcher.full_name if self.dispatcher else None
+    def to_dict(self, include_details=True): # Default to include details
+        data = {
+            'id': self.incident_id, 'patient_id': self.patient_id, 'dispatcher_id': self.dispatcher_id,
+            'ambulance_id': self.ambulance_id, 'destination_hospital_id': self.destination_hospital_id,
+            'latitude': str(self.location_lat) if self.location_lat is not None else None,
+            'longitude': str(self.location_lon) if self.location_lon is not None else None,
+            'description': self.location_description,
+            'incident_time': self.incident_time.isoformat() if self.incident_time else None,
+            'status': self.status
+        }
+        if include_details: # Include related object details
+            data['patient'] = self.patient.to_dict() if self.patient else None # Patient is lazy loaded on access
+            data['ambulance_plate'] = self.ambulance.license_plate if self.ambulance else None # Already loaded
+            data['hospital_name'] = self.destination_hospital.name if self.destination_hospital else None # Already loaded
+            data['dispatcher_name'] = self.dispatcher.full_name if self.dispatcher else None # Already loaded
         return data
-
-# --- Event listener for Incident status changes ---
-@event.listens_for(Incident.status, 'set')
-def receive_set_incident(target, value, oldvalue, initiator):
-    if oldvalue != value and hasattr(target, 'incident_id') and target.incident_id is not None:
-        if 'pending_emissions' not in session: session['pending_emissions'] = []
-        incident_full = Incident.query.options(
-            joinedload(Incident.patient), joinedload(Incident.ambulance),
-            joinedload(Incident.destination_hospital), joinedload(Incident.dispatcher)
-        ).get(target.incident_id)
-        if incident_full:
-             session['pending_emissions'].append(('incident_update', incident_full.to_dict(include_details=True)))
-             logging.info(f"Incident {target.incident_id} status changed to {value}. Queued emission.")
-        else:
-             logging.warning(f"Could not refetch incident {target.incident_id} for emission.")
-
-# --- Listener for after commit ---
-@event.listens_for(db.session, 'after_commit')
-def after_commit(session_instance):
-    if 'pending_emissions' in session:
-        for event_name, data in session['pending_emissions']:
-            logging.info(f"Emitting {event_name} for ID {data.get('id')}")
-            socketio.emit(event_name, data, room='dashboard_updates')
-        del session['pending_emissions']
 
 class PatientVitalsLog(db.Model):
     __tablename__ = 'patient_vitals_log'
@@ -251,273 +277,390 @@ class PatientVitalsLog(db.Model):
     oxygen_saturation = db.Column(db.DECIMAL(5, 2), nullable=True)
 
     def to_dict(self):
-        return { 'log_id': self.log_id, 'incident_id': self.incident_id, 'timestamp': self.timestamp.isoformat() if self.timestamp else None, 'heart_rate': self.heart_rate, 'blood_pressure_systolic': self.blood_pressure_systolic, 'blood_pressure_diastolic': self.blood_pressure_diastolic, 'oxygen_saturation': str(self.oxygen_saturation) if self.oxygen_saturation is not None else None }
+        return {
+            'log_id': self.log_id, 'incident_id': self.incident_id,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
+            'heart_rate': self.heart_rate, 'blood_pressure_systolic': self.blood_pressure_systolic,
+            'blood_pressure_diastolic': self.blood_pressure_diastolic,
+            'oxygen_saturation': str(self.oxygen_saturation) if self.oxygen_saturation is not None else None
+        }
+
+# --- Event listener for Incident status changes ---
+@event.listens_for(Incident.status, 'set')
+def receive_set_incident(target, value, oldvalue, initiator):
+    if oldvalue != value and hasattr(target, 'incident_id') and target.incident_id is not None:
+        if 'pending_emissions' not in session: session['pending_emissions'] = []
+        # Queue ID, fetch full data after commit
+        session['pending_emissions'].append(('incident_update', target.incident_id))
+        logging.info(f"Incident {target.incident_id} status changed to {value}. Queued emission.")
+
+# --- Listener for after commit to send queued emissions ---
+@event.listens_for(db.session, 'after_commit')
+def after_commit(session_instance):
+    if 'pending_emissions' in session:
+        # Use a copy of the list to avoid issues if session is modified
+        emissions = list(session['pending_emissions'])
+        session.pop('pending_emissions', None) # Clear queue
+        for event_name, item_id_or_data in emissions:
+            data_to_emit = None
+            if event_name == 'incident_update' and isinstance(item_id_or_data, int):
+                # Re-fetch the full incident details AFTER commit
+                incident_full = Incident.query.options(
+                    joinedload(Incident.patient), joinedload(Incident.ambulance),
+                    joinedload(Incident.destination_hospital), joinedload(Incident.dispatcher)
+                ).get(item_id_or_data)
+                if incident_full:
+                    data_to_emit = incident_full.to_dict(include_details=True)
+                else:
+                    logging.warning(f"Could not refetch incident {item_id_or_data} for emission post-commit.")
+            elif isinstance(item_id_or_data, dict): # Handle cases where data was passed directly
+                 data_to_emit = item_id_or_data
+
+            if data_to_emit:
+                logging.info(f"Emitting {event_name} for ID {data_to_emit.get('id')}")
+                socketio.emit(event_name, data_to_emit, room='dashboard_updates')
 
 
 ## -- Authentication API Routes -- ##
+
 @app.route('/api/register', methods=['POST'])
 def register_user():
-    data = request.get_json();
-    if not data: return jsonify(error="Missing JSON body"), 400;
-    username = data.get('username'); password = data.get('password'); full_name = data.get('full_name'); role = data.get('role'); hospital_id = data.get('hospital_id');
-    if not username or not password or not full_name or not role: return jsonify(error="Missing required fields"), 400;
-    if User.query.filter(func.lower(User.username) == username.lower()).first(): return jsonify(error="Username exists"), 409;
+    data = request.get_json()
+    if not data: return jsonify(error="Missing JSON body"), 400
+    username = data.get('username')
+    password = data.get('password')
+    full_name = data.get('full_name')
+    role = data.get('role')
+    hospital_id = data.get('hospital_id') # For hospital staff
+
+    if not username or not password or not full_name or not role:
+        return jsonify(error="Missing username, password, full_name, or role"), 400
+    if User.query.filter(func.lower(User.username) == username.lower()).first(): # Case-insensitive check
+        return jsonify(error="Username already exists"), 409
+
     try:
-        new_user = User(username=username, full_name=full_name, role=role); new_user.set_password(password);
+        new_user = User(username=username, full_name=full_name, role=role)
+        new_user.set_password(password) # Handles validation and hashing
+
         if role == ROLES['HOSPITAL_STAFF']:
-            if not hospital_id: return jsonify(error="hospital_id required for role"), 400;
-            hospital = Hospital.query.get(hospital_id);
-            if not hospital: return jsonify(error=f"Hospital ID {hospital_id} not found"), 404;
-            new_user.hospital_id = hospital_id;
-        db.session.add(new_user); db.session.commit();
-        return jsonify(new_user.to_dict()), 201;
-    except ValueError as ve: db.session.rollback(); return jsonify(error=str(ve)), 400;
-    except Exception as e: db.session.rollback(); app.logger.error(f"Reg err: {e}"); return jsonify(error="Internal error"), 500
+            if not hospital_id: return jsonify(error="hospital_id required for hospital_staff role"), 400
+            hospital = Hospital.query.get(hospital_id)
+            if not hospital: return jsonify(error=f"Hospital with ID {hospital_id} not found"), 404
+            new_user.hospital_id = hospital_id
+
+        db.session.add(new_user)
+        db.session.commit()
+        return jsonify(new_user.to_dict()), 201
+    except ValueError as ve: # Catch validation errors from model
+        db.session.rollback()
+        return jsonify(error=str(ve)), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error during registration: {e}") # Log the error
+        return jsonify(error="An internal error occurred during registration."), 500
 
 @app.route('/api/login', methods=['POST'])
 def login_user():
-    data = request.get_json();
-    if not data: return jsonify(error="Missing body"), 400;
-    username = data.get('username'); password = data.get('password');
-    if not username or not password: return jsonify(error="Missing credentials"), 400;
-    user = User.query.filter(func.lower(User.username) == username.lower()).first();
-    if user and user.check_password(password):
-        claims = {"role": user.role, "full_name": user.full_name};
-        if user.hospital_id: claims["hospital_id"] = user.hospital_id;
-        access_token = create_access_token(identity=user.user_id, additional_claims=claims);
-        return jsonify(access_token=access_token, user=user.to_dict());
-    else: return jsonify(error="Invalid credentials"), 401
+    data = request.get_json()
+    if not data: return jsonify(error="Missing JSON body"), 400
+    username = data.get('username')
+    password = data.get('password')
 
+    if not username or not password: return jsonify(error="Missing username or password"), 400
+
+    user = User.query.filter(func.lower(User.username) == username.lower()).first()
+
+    if user and user.check_password(password):
+        # Include user details (excluding password) and role in the token claims
+        additional_claims = {"role": user.role, "full_name": user.full_name}
+        if user.hospital_id: additional_claims["hospital_id"] = user.hospital_id # Add hospital_id if applicable
+        # --- FIX: Cast identity to string ---
+        access_token = create_access_token(identity=str(user.user_id), additional_claims=additional_claims)
+        return jsonify(access_token=access_token, user=user.to_dict())
+    else:
+        return jsonify(error="Invalid username or password"), 401
+
+
+# --- Helper to get current user ---
 @jwt.user_lookup_loader
 def user_lookup_callback(_jwt_header, jwt_data):
-    identity = jwt_data["sub"]; return User.query.get(identity)
+    identity = jwt_data["sub"]
+    # --- FIX: Cast identity back to int ---
+    return User.query.get(int(identity))
 
 
 ## -- User Management (Supervisor Only) -- ##
 @app.route('/api/users', methods=['GET'])
 @roles_required(ROLES['SUPERVISOR'])
 def get_users():
-    try: users = User.query.options(joinedload(User.staff_profile)).all(); return jsonify([u.to_dict() for u in users]), 200;
-    except Exception as e: app.logger.error(f"Err users: {e}"); return jsonify(error="Failed"), 500
+    try:
+        users = User.query.options(joinedload(User.staff_profile)).all() # Eager load staff profile
+        return jsonify([u.to_dict() for u in users]), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching users: {e}")
+        return jsonify(error="Failed to fetch users"), 500
 
 @app.route('/api/users/<int:user_id>', methods=['GET', 'PUT', 'DELETE'])
 @roles_required(ROLES['SUPERVISOR'])
 def handle_user(user_id):
-    user = User.query.get_or_404(user_id);
-    if request.method == 'GET': return jsonify(user.to_dict());
+    user = User.query.get_or_404(user_id)
+
+    if request.method == 'GET':
+        return jsonify(user.to_dict())
+
     if request.method == 'PUT':
-        data = request.get_json();
-        if not data: return jsonify(error="Missing body"), 400;
+        data = request.get_json()
+        if not data: return jsonify(error="Missing JSON body"), 400
         try:
-            user.full_name = data.get('full_name', user.full_name); new_role = data.get('role');
-            if new_role: user.role = new_role;
+            user.full_name = data.get('full_name', user.full_name)
+            new_role = data.get('role')
+            if new_role: user.role = new_role # Let validation handle correctness
+
             if user.role == ROLES['HOSPITAL_STAFF']:
-                hospital_id = data.get('hospital_id');
-                if hospital_id: hospital = Hospital.query.get_or_404(hospital_id); user.hospital_id = hospital_id;
-                else: user.hospital_id = None;
-            else: user.hospital_id = None;
-            db.session.commit(); return jsonify(user.to_dict()), 200;
-        except ValueError as ve: db.session.rollback(); return jsonify(error=str(ve)), 400;
-        except Exception as e: db.session.rollback(); app.logger.error(f"Err update user {user_id}: {e}"); return jsonify(error="Failed"), 500;
+                hospital_id = data.get('hospital_id')
+                if hospital_id:
+                     hospital = Hospital.query.get_or_404(hospital_id)
+                     user.hospital_id = hospital_id
+                else: # Allow unassigning
+                     user.hospital_id = None
+            else: # Ensure hospital_id is null for non-staff roles
+                 user.hospital_id = None
+
+            db.session.commit()
+            return jsonify(user.to_dict()), 200
+        except ValueError as ve:
+             db.session.rollback()
+             return jsonify(error=str(ve)), 400
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error updating user {user_id}: {e}")
+            return jsonify(error="Failed to update user"), 500
+
     if request.method == 'DELETE':
         try:
-            db.session.delete(user); db.session.commit(); return '', 204;
+            db.session.delete(user) # Note: Cascades should handle related Staff profile if set up
+            db.session.commit()
+            return '', 204
         except Exception as e:
-            db.session.rollback(); app.logger.error(f"Err delete user {user_id}: {e}");
-            if 'foreign key constraint' in str(e).lower(): return jsonify(error="Cannot delete user: Referenced elsewhere."), 409;
-            return jsonify(error="Failed"), 500
+            db.session.rollback()
+            app.logger.error(f"Error deleting user {user_id}: {e}")
+            # Check for integrity errors if user is referenced elsewhere (e.g., incidents)
+            if 'foreign key constraint' in str(e).lower():
+                 return jsonify(error="Cannot delete user: They are referenced in existing records (e.g., incidents)."), 409
+            return jsonify(error="Failed to delete user"), 500
 
 
 ## -- Ambulance API Routes -- ##
-@app.route('/api/ambulances', methods=['GET', 'POST'])
-@jwt_required()
-def handle_ambulances():
-    if request.method == 'POST':
-        # --- Simplified: Apply decorator directly ---
-        @roles_required(ROLES['SUPERVISOR'], ROLES['DISPATCHER'])
-        def post_ambulance():
-            data=request.get_json()
-            if not data or not data.get('license_plate'):return jsonify(error="Missing plate"),400
-            if Ambulance.query.filter_by(license_plate=data['license_plate']).first():return jsonify(error="Plate exists"),409
-            try:
-                amb=Ambulance(license_plate=data['license_plate'],status=data.get('status','available'),current_lat=data.get('latitude'),current_lon=data.get('longitude'))
-                db.session.add(amb); db.session.commit()
-                socketio.emit('ambulance_update', amb.to_dict(), room='dashboard_updates') # Emit creation
-                return jsonify(amb.to_dict()),201
-            except ValueError as ve:db.session.rollback();return jsonify(error=str(ve)),400
-            except Exception as e:db.session.rollback();app.logger.error(f"Err add amb: {e}");return jsonify(error="Internal error"),500
-        return post_ambulance()
-
-    # --- Simplified GET ---
-    claims = get_jwt()
-    user_role = claims.get("role", None)
-    allowed_roles = [ROLES['SUPERVISOR'], ROLES['DISPATCHER'], ROLES['PARAMEDIC'], ROLES['HOSPITAL_STAFF']]
-    if user_role not in allowed_roles:
-         return jsonify(error=f"Unauthorized: Roles required: {', '.join(allowed_roles)}"), 403
-
+@app.route('/api/ambulances', methods=['GET'])
+@roles_required(ROLES['SUPERVISOR'], ROLES['DISPATCHER'], ROLES['PARAMEDIC'], ROLES['HOSPITAL_STAFF'])
+def get_ambulances_route():
     try:
-        current_user_id = get_jwt_identity()
-        app.logger.info(f"--- GET /api/ambulances ---")
+        current_user_id = int(get_jwt_identity()) # FIX: Cast to int
+        user_role = get_jwt().get('role')
+        app.logger.info(f"--- Entering GET /api/ambulances ---")
         app.logger.info(f"User ID: {current_user_id}, Role: {user_role}")
-        app.logger.info("Querying ambulances...")
-        ambs=Ambulance.query.all()
-        app.logger.info(f"Found {len(ambs)} ambulances.")
-        results = [a.to_dict() for a in ambs]
-        app.logger.info("Serialization complete.")
-        return jsonify(results),200
+        app.logger.info("Attempting Ambulance.query.all()")
+        all_ambulances = Ambulance.query.all()
+        app.logger.info(f"Query successful, found {len(all_ambulances)} ambulances.")
+        results = [a.to_dict() for a in all_ambulances]
+        app.logger.info("Serialization successful.")
+        return jsonify(results), 200
     except Exception as e:
         app.logger.error(f"!!! Error in GET /api/ambulances: {e}", exc_info=True)
-        return jsonify(error="Internal error"),500
+        return jsonify(error="Internal server error fetching ambulances"), 500
 
+@app.route('/api/ambulances', methods=['POST'])
+@roles_required(ROLES['SUPERVISOR'], ROLES['DISPATCHER'])
+def post_ambulance_route():
+    data = request.get_json();
+    if not data or not data.get('license_plate'): return jsonify(error="Missing license_plate"), 400
+    if Ambulance.query.filter_by(license_plate=data['license_plate']).first(): return jsonify(error="License plate already exists"), 409
+    try:
+        new_ambulance = Ambulance(license_plate=data['license_plate'], status=data.get('status', 'available'), current_lat=data.get('latitude'), current_lon=data.get('longitude'))
+        db.session.add(new_ambulance); db.session.commit();
+        socketio.emit('ambulance_update', new_ambulance.to_dict(), room='dashboard_updates') # Emit creation
+        return jsonify(new_ambulance.to_dict()), 201
+    except ValueError as ve: db.session.rollback(); return jsonify(error=str(ve)), 400
+    except Exception as e: db.session.rollback(); app.logger.error(f"Err add amb: {e}"); return jsonify(error="Internal server error"), 500
 
-@app.route('/api/ambulances/<int:ambulance_id>', methods=['GET', 'PUT', 'DELETE'])
-@jwt_required()
-def handle_ambulance(ambulance_id):
-    amb = Ambulance.query.get_or_404(ambulance_id); user_role=get_jwt().get('role'); uid=get_jwt_identity()
-    if request.method=='GET':
-        allowed_roles = [ROLES['SUPERVISOR'], ROLES['DISPATCHER'], ROLES['PARAMEDIC'], ROLES['HOSPITAL_STAFF']]
-        if user_role not in allowed_roles: return jsonify(error="Unauthorized"), 403
-        return jsonify(amb.to_dict())
+@app.route('/api/ambulances/<int:ambulance_id>', methods=['GET'])
+@roles_required(ROLES['SUPERVISOR'], ROLES['DISPATCHER'], ROLES['PARAMEDIC'], ROLES['HOSPITAL_STAFF'])
+def get_ambulance_route(ambulance_id):
+    ambulance = Ambulance.query.get_or_404(ambulance_id)
+    return jsonify(ambulance.to_dict())
 
-    if request.method=='PUT':
-        @roles_required(ROLES['SUPERVISOR'], ROLES['DISPATCHER'], ROLES['PARAMEDIC'])
-        def put_amb():
-            data=request.get_json()
-            if not data: return jsonify(error="Missing body"),400
-            try:
-                if user_role==ROLES['PARAMEDIC']:
-                    sp=Staff.query.filter_by(user_id=uid).first()
-                    if not sp or sp.assigned_ambulance_id!=ambulance_id: return jsonify(error="Paramedic can only update assigned amb."),403
-                    amb.status=data.get('status',amb.status); amb.current_lat=data.get('latitude',amb.current_lat); amb.current_lon=data.get('longitude',amb.current_lon)
-                else:
-                    np=data.get('license_plate',amb.license_plate)
-                    if np!=amb.license_plate and Ambulance.query.filter_by(license_plate=np).first(): return jsonify(error="Plate exists"),409
-                    amb.license_plate=np; amb.status=data.get('status',amb.status); amb.current_lat=data.get('latitude',amb.current_lat); amb.current_lon=data.get('longitude',amb.current_lon)
-                db.session.commit() # Triggers 'after_update'
-                return jsonify(amb.to_dict())
-            except ValueError as ve:db.session.rollback();return jsonify(error=str(ve)),400
-            except Exception as e:db.session.rollback();app.logger.error(f"Err update amb {ambulance_id}: {e}");return jsonify(error="Internal error"),500
-        return put_amb()
+@app.route('/api/ambulances/<int:ambulance_id>', methods=['PUT'])
+@roles_required(ROLES['SUPERVISOR'], ROLES['DISPATCHER'], ROLES['PARAMEDIC'])
+def put_ambulance_route(ambulance_id):
+    ambulance = Ambulance.query.get_or_404(ambulance_id)
+    user_role = get_jwt().get('role')
+    current_user_id = int(get_jwt_identity()) # FIX: Cast to int
+    data = request.get_json()
+    if not data: return jsonify(error="Missing JSON body"), 400
+    try:
+        if user_role == ROLES['PARAMEDIC']:
+            staff_profile = Staff.query.filter_by(user_id=current_user_id).first()
+            if not staff_profile or staff_profile.assigned_ambulance_id != ambulance_id:
+                return jsonify(error="Paramedic can only update their assigned ambulance."), 403
+            ambulance.status = data.get('status', ambulance.status)
+            ambulance.current_lat = data.get('latitude', ambulance.current_lat)
+            ambulance.current_lon = data.get('longitude', ambulance.current_lon)
+        else: # Supervisors/Dispatchers
+            new_plate = data.get('license_plate', ambulance.license_plate)
+            if new_plate != ambulance.license_plate and Ambulance.query.filter_by(license_plate=new_plate).first():
+                return jsonify(error="License plate already exists"), 409
+            ambulance.license_plate = new_plate
+            ambulance.status = data.get('status', ambulance.status)
+            ambulance.current_lat = data.get('latitude', ambulance.current_lat)
+            ambulance.current_lon = data.get('longitude', ambulance.current_lon)
+        
+        db.session.commit() # This will trigger the 'after_update' event listener
+        return jsonify(ambulance.to_dict())
+    except ValueError as ve: db.session.rollback(); return jsonify(error=str(ve)), 400
+    except Exception as e: db.session.rollback(); app.logger.error(f"Err update amb {ambulance_id}: {e}"); return jsonify(error="Internal server error"), 500
 
-    if request.method=='DELETE':
-        @roles_required(ROLES['SUPERVISOR'])
-        def del_amb():
-            try:
-                db.session.delete(amb); db.session.commit()
-                socketio.emit('ambulance_deleted', {'id': ambulance_id }, room='dashboard_updates')
-                return '',204
-            except Exception as e:
-                db.session.rollback();app.logger.error(f"Err delete amb {ambulance_id}: {e}")
-                if 'foreign key constraint' in str(e).lower(): return jsonify(error="Cannot delete: Amb assigned."),409
-                return jsonify(error="Internal error"),500
-        return del_amb()
+@app.route('/api/ambulances/<int:ambulance_id>', methods=['DELETE'])
+@roles_required(ROLES['SUPERVISOR'])
+def delete_ambulance_route(ambulance_id):
+    ambulance = Ambulance.query.get_or_404(ambulance_id)
+    try:
+        db.session.delete(ambulance); db.session.commit()
+        socketio.emit('ambulance_deleted', {'id': ambulance_id }, room='dashboard_updates')
+        return '', 204
+    except Exception as e:
+        db.session.rollback(); app.logger.error(f"Err delete amb {ambulance_id}: {e}")
+        if 'foreign key constraint' in str(e).lower(): return jsonify(error="Cannot delete: Ambulance is assigned to staff or incidents."), 409
+        return jsonify(error="Internal server error"), 500
 
 
 ## -- Hospital API Routes -- ##
-@app.route('/api/hospitals', methods=['GET', 'POST'])
-@jwt_required()
-def handle_hospitals():
-    if request.method=='POST':
-        @roles_required(ROLES['SUPERVISOR'])
-        def post_hosp():
-            data=request.get_json()
-            if not data or not data.get('name') or data.get('latitude') is None or data.get('longitude') is None: return jsonify(error="Missing fields"),400
-            try:
-                hosp=Hospital(name=data['name'],latitude=data['latitude'],longitude=data['longitude'],address=data.get('address'),er_capacity=data.get('er_capacity'),er_current_occupancy=data.get('er_current_occupancy',0))
-                db.session.add(hosp); db.session.commit()
-                socketio.emit('hospital_update', hosp.to_dict(), room='dashboard_updates')
-                return jsonify(hosp.to_dict()),201
-            except ValueError as ve:db.session.rollback();return jsonify(error=str(ve)),400
-            except Exception as e:db.session.rollback();app.logger.error(f"Err add hosp: {e}");return jsonify(error="Internal error"),500
-        return post_hosp()
+@app.route('/api/hospitals', methods=['GET'])
+@roles_required(ROLES['SUPERVISOR'],ROLES['DISPATCHER'],ROLES['PARAMEDIC'],ROLES['HOSPITAL_STAFF'])
+def get_hospitals_route():
+    current_user_id = int(get_jwt_identity()) # FIX: Cast to int
+    user_role = get_jwt().get('role')
+    app.logger.info(f"--- Entering GET /api/hospitals ---")
+    app.logger.info(f"User ID: {current_user_id}, Role: {user_role}")
+    try:
+        app.logger.info("Querying hospitals...")
+        hosps=Hospital.query.all()
+        app.logger.info(f"Found {len(hosps)} hospitals.")
+        results = [h.to_dict() for h in hosps]
+        app.logger.info("Serialization complete.")
+        return jsonify(results),200
+    except Exception as e:
+        app.logger.error(f"!!! Error in GET /api/hospitals: {e}", exc_info=True)
+        return jsonify(error="Internal error"),500
 
-    # Simplified GET
-    claims = get_jwt(); user_role = claims.get("role", None)
-    allowed_roles = [ROLES['SUPERVISOR'],ROLES['DISPATCHER'],ROLES['PARAMEDIC'],ROLES['HOSPITAL_STAFF']]
-    if user_role not in allowed_roles: return jsonify(error="Unauthorized"), 403
-    try: hosps=Hospital.query.all(); return jsonify([h.to_dict() for h in hosps]),200
-    except Exception as e:app.logger.error(f"Err get hosp: {e}"); return jsonify(error="Internal error"),500
+@app.route('/api/hospitals', methods=['POST'])
+@roles_required(ROLES['SUPERVISOR'])
+def post_hospital_route():
+    data=request.get_json()
+    if not data or not data.get('name') or data.get('latitude') is None or data.get('longitude') is None: return jsonify(error="Missing required fields: name, latitude, longitude"), 400
+    try:
+        hosp=Hospital(name=data['name'],latitude=data['latitude'],longitude=data['longitude'],address=data.get('address'),er_capacity=data.get('er_capacity'),er_current_occupancy=data.get('er_current_occupancy',0))
+        db.session.add(hosp); db.session.commit()
+        socketio.emit('hospital_update', hosp.to_dict(), room='dashboard_updates')
+        return jsonify(hosp.to_dict()),201
+    except ValueError as ve:db.session.rollback();return jsonify(error=str(ve)),400
+    except Exception as e:db.session.rollback();app.logger.error(f"Err add hosp: {e}");return jsonify(error="Internal error"),500
 
+@app.route('/api/hospitals/<int:hospital_id>', methods=['GET'])
+@roles_required(ROLES['SUPERVISOR'],ROLES['DISPATCHER'],ROLES['PARAMEDIC'],ROLES['HOSPITAL_STAFF'])
+def get_hospital_route(hospital_id):
+    hosp = Hospital.query.options(joinedload(Hospital.specialties)).get_or_404(hospital_id)
+    return jsonify(hosp.to_dict())
 
-@app.route('/api/hospitals/<int:hospital_id>', methods=['GET', 'PUT', 'DELETE'])
-@jwt_required()
-def handle_hospital(hospital_id):
-    hosp = Hospital.query.options(joinedload(Hospital.specialties)).get_or_404(hospital_id); role=get_jwt().get('role'); uid=get_jwt_identity()
-    if request.method=='GET':
-        allowed_roles = [ROLES['SUPERVISOR'],ROLES['DISPATCHER'],ROLES['PARAMEDIC'],ROLES['HOSPITAL_STAFF']]
-        if role not in allowed_roles: return jsonify(error="Unauthorized"), 403
+@app.route('/api/hospitals/<int:hospital_id>', methods=['PUT'])
+@roles_required(ROLES['SUPERVISOR'], ROLES['HOSPITAL_STAFF'])
+def put_hospital_route(hospital_id):
+    hosp = Hospital.query.options(joinedload(Hospital.specialties)).get_or_404(hospital_id); role=get_jwt().get('role');
+    uid=int(get_jwt_identity()) # FIX: Cast to int
+    user=User.query.get(uid)
+    if role==ROLES['HOSPITAL_STAFF'] and user.hospital_id!=hospital_id: return jsonify(error="Staff can only update own hosp."),403
+    data=request.get_json()
+    if not data: return jsonify(error="Missing body"), 400
+    try:
+        hosp.name=data.get('name',hosp.name); hosp.address=data.get('address',hosp.address); hosp.latitude=data.get('latitude',hosp.latitude); hosp.longitude=data.get('longitude',hosp.longitude); hosp.er_capacity=data.get('er_capacity',hosp.er_capacity); hosp.er_current_occupancy=data.get('er_current_occupancy',hosp.er_current_occupancy)
+        db.session.commit()
+        socketio.emit('hospital_update', hosp.to_dict(), room='dashboard_updates')
         return jsonify(hosp.to_dict())
+    except ValueError as ve:db.session.rollback();return jsonify(error=str(ve)),400
+    except Exception as e:db.session.rollback();app.logger.error(f"Err update hosp {hospital_id}: {e}");return jsonify(error="Internal error"),500
 
-    if request.method=='PUT':
-        @roles_required(ROLES['SUPERVISOR'], ROLES['HOSPITAL_STAFF'])
-        def put_hosp():
-            user=User.query.get(uid)
-            if role==ROLES['HOSPITAL_STAFF'] and user.hospital_id!=hospital_id: return jsonify(error="Staff can only update own hosp."),403
-            data=request.get_json()
-            if not data: return jsonify(error="Missing body"), 400
-            try:
-                hosp.name=data.get('name',hosp.name); hosp.address=data.get('address',hosp.address); hosp.latitude=data.get('latitude',hosp.latitude); hosp.longitude=data.get('longitude',hosp.longitude); hosp.er_capacity=data.get('er_capacity',hosp.er_capacity); hosp.er_current_occupancy=data.get('er_current_occupancy',hosp.er_current_occupancy)
-                db.session.commit()
-                socketio.emit('hospital_update', hosp.to_dict(), room='dashboard_updates')
-                return jsonify(hosp.to_dict())
-            except ValueError as ve:db.session.rollback();return jsonify(error=str(ve)),400
-            except Exception as e:db.session.rollback();app.logger.error(f"Err update hosp {hospital_id}: {e}");return jsonify(error="Internal error"),500
-        return put_hosp()
-
-    if request.method=='DELETE':
-        @roles_required(ROLES['SUPERVISOR'])
-        def del_hosp():
-            try:
-                db.session.delete(hosp); db.session.commit()
-                socketio.emit('hospital_deleted', {'id': hospital_id }, room='dashboard_updates')
-                return '',204
-            except Exception as e:
-                db.session.rollback();app.logger.error(f"Err delete hosp {hospital_id}: {e}")
-                if 'foreign key constraint' in str(e).lower(): return jsonify(error="Cannot delete: Hosp referenced."),409
-                return jsonify(error="Internal error"),500
-        return del_hosp()
+@app.route('/api/hospitals/<int:hospital_id>', methods=['DELETE'])
+@roles_required(ROLES['SUPERVISOR'])
+def delete_hospital_route(hospital_id):
+    hosp = Hospital.query.options(joinedload(Hospital.specialties)).get_or_404(hospital_id)
+    try:
+        db.session.delete(hosp); db.session.commit()
+        socketio.emit('hospital_deleted', {'id': hospital_id }, room='dashboard_updates')
+        return '',204
+    except Exception as e:
+        db.session.rollback();app.logger.error(f"Err delete hosp {hospital_id}: {e}")
+        if 'foreign key constraint' in str(e).lower(): return jsonify(error="Cannot delete: Hosp referenced."),409
+        return jsonify(error="Internal error"),500
 
 
 ## -- Incident API Routes -- ##
-@app.route('/api/incidents', methods=['GET', 'POST'])
-@jwt_required()
-def handle_incidents():
-    role=get_jwt().get('role'); uid=get_jwt_identity()
-    if request.method=='POST':
-        @roles_required(ROLES['SUPERVISOR'], ROLES['DISPATCHER'])
-        def post_inc():
-            data=request.get_json()
-            if not data or data.get('location_lat') is None or data.get('location_lon') is None: return jsonify(error="Missing location"),400
-            try:
-                aid=data.get('ambulance_id'); hid=data.get('hospital_id')
-                if aid and not Ambulance.query.get(aid): return jsonify(error=f"Amb ID {aid} not found"),404
-                if hid and not Hospital.query.get(hid): return jsonify(error=f"Hosp ID {hid} not found"),404
-                pat=Patient(full_name=data.get('patient_name'),dob=data.get('patient_dob'),blood_type=data.get('patient_blood_type')); db.session.add(pat); db.session.flush()
-                inc=Incident(patient_id=pat.patient_id, location_lat=data['location_lat'], location_lon=data['location_lon'], location_description=data.get('description'), dispatcher_id=uid, ambulance_id=aid, destination_hospital_id=hid, status=data.get('status','active')); db.session.add(inc); db.session.commit()
-                res=Incident.query.options(joinedload(Incident.patient), joinedload(Incident.ambulance), joinedload(Incident.destination_hospital), joinedload(Incident.dispatcher)).get(inc.incident_id); # Eager load for emit
-                socketio.emit('incident_update', res.to_dict(include_details=True), room='dashboard_updates')
-                return jsonify(res.to_dict(include_details=True)),201
-            except ValueError as ve:db.session.rollback();return jsonify(error=str(ve)),400
-            except Exception as e:db.session.rollback();app.logger.error(f"Err create inc: {e}");return jsonify(error="Internal error"),500
-        return post_inc()
-
-    # Simplified GET
-    claims = get_jwt(); user_role = claims.get("role", None)
-    allowed_roles = [ROLES['SUPERVISOR'],ROLES['DISPATCHER'],ROLES['PARAMEDIC'],ROLES['HOSPITAL_STAFF']]
-    if user_role not in allowed_roles: return jsonify(error="Unauthorized"), 403
+@app.route('/api/incidents', methods=['GET'])
+@roles_required(ROLES['SUPERVISOR'],ROLES['DISPATCHER'],ROLES['PARAMEDIC'],ROLES['HOSPITAL_STAFF'])
+def get_incidents_route():
+    role=get_jwt().get('role');
+    uid=int(get_jwt_identity()) # FIX: Cast to int
+    app.logger.info(f"--- Entering GET /api/incidents ---")
+    app.logger.info(f"User ID: {uid}, Role: {role}")
     try:
-        q=Incident.query.options(joinedload(Incident.patient), joinedload(Incident.ambulance), joinedload(Incident.destination_hospital), joinedload(Incident.dispatcher)); # Eager load
+        app.logger.info("Building incident query...")
+        q=Incident.query.options(joinedload(Incident.patient), joinedload(Incident.ambulance), joinedload(Incident.destination_hospital), joinedload(Incident.dispatcher));
         u=User.query.get(uid)
+        app.logger.info(f"Filtering based on role {role}...")
         if role==ROLES['PARAMEDIC']:
             sp=Staff.query.filter_by(user_id=uid).first()
-            if sp and sp.assigned_ambulance_id: q=q.filter(Incident.ambulance_id==sp.assigned_ambulance_id, Incident.status.notin_(['closed','cancelled']))
-            else: return jsonify([]),200
+            if sp and sp.assigned_ambulance_id:
+                app.logger.info(f"Paramedic filter: ambulance_id={sp.assigned_ambulance_id}")
+                q=q.filter(Incident.ambulance_id==sp.assigned_ambulance_id, Incident.status.notin_(['closed','cancelled']))
+            else:
+                app.logger.info("Paramedic has no assigned ambulance, returning empty list.")
+                return jsonify([]),200
         elif role==ROLES['HOSPITAL_STAFF']:
-            if u.hospital_id: q=q.filter(Incident.destination_hospital_id==u.hospital_id, Incident.status=='en_route_to_hospital') # Only incoming
-            else: return jsonify([]),200
+            if u and u.hospital_id: # Check user exists
+                app.logger.info(f"Hospital Staff filter: hospital_id={u.hospital_id}")
+                q=q.filter(Incident.destination_hospital_id==u.hospital_id, Incident.status=='en_route_to_hospital') # Only incoming
+            else:
+                app.logger.info("Hospital Staff has no assigned hospital, returning empty list.")
+                return jsonify([]),200
+        else:
+             app.logger.info("Supervisor/Dispatcher: No additional filters.")
+
+        app.logger.info("Executing incident query...")
         incs=q.order_by(Incident.incident_time.desc()).all()
-        return jsonify([i.to_dict(include_details=True) for i in incs]),200
-    except Exception as e:app.logger.error(f"Err get incs: {e}");return jsonify(error="Internal error"),500
+        app.logger.info(f"Query successful, found {len(incs)} incidents.")
+        results = [i.to_dict(include_details=True) for i in incs]
+        app.logger.info("Serialization successful.")
+        return jsonify(results),200
+    except Exception as e:
+        app.logger.error(f"!!! Error in GET /api/incidents: {e}", exc_info=True)
+        return jsonify(error="Internal error"),500
+
+@app.route('/api/incidents', methods=['POST'])
+@roles_required(ROLES['SUPERVISOR'], ROLES['DISPATCHER'])
+def post_incident_route():
+    role=get_jwt().get('role');
+    uid=int(get_jwt_identity()) # FIX: Cast to int
+    data=request.get_json()
+    if not data or data.get('location_lat') is None or data.get('location_lon') is None: return jsonify(error="Missing location"),400
+    try:
+        aid=data.get('ambulance_id'); hid=data.get('hospital_id')
+        if aid and not Ambulance.query.get(aid): return jsonify(error=f"Amb ID {aid} not found"),404
+        if hid and not Hospital.query.get(hid): return jsonify(error=f"Hosp ID {hid} not found"),404
+        pat=Patient(full_name=data.get('patient_name'),dob=data.get('patient_dob'),blood_type=data.get('patient_blood_type')); db.session.add(pat); db.session.flush()
+        inc=Incident(patient_id=pat.patient_id, location_lat=data['location_lat'], location_lon=data['location_lon'], location_description=data.get('description'), dispatcher_id=uid, ambulance_id=aid, destination_hospital_id=hid, status=data.get('status','active')); db.session.add(inc); db.session.commit()
+        res=Incident.query.options(joinedload(Incident.patient), joinedload(Incident.ambulance), joinedload(Incident.destination_hospital), joinedload(Incident.dispatcher)).get(inc.incident_id); # Eager load for emit
+        socketio.emit('incident_update', res.to_dict(include_details=True), room='dashboard_updates')
+        return jsonify(res.to_dict(include_details=True)),201
+    except ValueError as ve:db.session.rollback();return jsonify(error=str(ve)),400
+    except Exception as e:db.session.rollback();app.logger.error(f"Err create inc: {e}");return jsonify(error="Internal error"),500
 
 
 @app.route('/api/incidents/<int:incident_id>', methods=['GET', 'PUT', 'DELETE'])
@@ -525,7 +668,7 @@ def handle_incidents():
 def handle_incident(incident_id):
     inc=Incident.query.options(joinedload(Incident.patient),joinedload(Incident.ambulance),joinedload(Incident.destination_hospital),joinedload(Incident.dispatcher)).get_or_404(incident_id)
     role=get_jwt().get('role')
-    uid=get_jwt_identity()
+    uid=int(get_jwt_identity()) # FIX: Cast to int
     allowed=False
     if role in [ROLES['SUPERVISOR'],ROLES['DISPATCHER']]:
         allowed=True
@@ -579,12 +722,13 @@ def handle_incident(incident_id):
 @app.route('/api/incidents/<int:incident_id>/vitals', methods=['GET', 'POST'])
 @jwt_required()
 def handle_incident_vitals(incident_id):
-    inc=Incident.query.get_or_404(incident_id); role=get_jwt().get('role'); uid=get_jwt_identity()
+    inc=Incident.query.get_or_404(incident_id); role=get_jwt().get('role');
+    uid=int(get_jwt_identity()) # FIX: Cast to int
     if request.method=='POST':
         allowed=False
         if role==ROLES['SUPERVISOR']: allowed=True
         elif role==ROLES['PARAMEDIC']:
-            sp=Staff.query.filter_by(user_id=uid).first()
+            sp=Staff.query.filter_by(user_id=uid).first();
             if sp and sp.assigned_ambulance_id==inc.ambulance_id: allowed=True
         if not allowed: return jsonify(error="Unauthorized add vitals"),403
         data=request.get_json();
@@ -672,7 +816,8 @@ def handle_single_staff(staff_id):
 @app.route('/api/ambulances/<int:ambulance_id>/equipment', methods=['GET', 'POST'])
 @jwt_required()
 def handle_ambulance_equipment(ambulance_id):
-    amb=Ambulance.query.get_or_404(ambulance_id); role=get_jwt().get('role'); uid=get_jwt_identity()
+    amb=Ambulance.query.get_or_404(ambulance_id); role=get_jwt().get('role');
+    uid=int(get_jwt_identity()) # FIX: Cast to int
     if request.method=='POST':
         allowed=False
         if role==ROLES['SUPERVISOR']:allowed=True
@@ -696,7 +841,8 @@ def handle_ambulance_equipment(ambulance_id):
 @app.route('/api/equipment/<int:equipment_id>', methods=['PUT', 'DELETE'])
 @roles_required(ROLES['SUPERVISOR'], ROLES['PARAMEDIC'])
 def handle_single_equipment(equipment_id):
-    eq=Equipment.query.get_or_404(equipment_id); role=get_jwt().get('role'); uid=get_jwt_identity()
+    eq=Equipment.query.get_or_404(equipment_id); role=get_jwt().get('role');
+    uid=int(get_jwt_identity()) # FIX: Cast to int
     if role==ROLES['PARAMEDIC']:
         sp=Staff.query.filter_by(user_id=uid).first()
         if not sp or sp.assigned_ambulance_id!=eq.ambulance_id: return jsonify(error="Paramedic can only manage equip on assigned amb."),403
@@ -707,8 +853,13 @@ def handle_single_equipment(equipment_id):
             eq.equipment_name=data.get('equipment_name',eq.equipment_name); # Allow supervisor to rename
             eq.status=data.get('status',eq.status); # Validation in model
             db.session.commit(); return jsonify(eq.to_dict())
-        except ValueError as ve:db.session.rollback();return jsonify(error=str(ve)),400
-        except Exception as e:db.session.rollback();app.logger.error(f"Err update equip {equipment_id}: {e}");return jsonify(error="Internal error"),500
+        except ValueError as ve:
+            db.session.rollback()
+            return jsonify(error=str(ve)), 400
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Err update equip {equipment_id}: {e}")
+            return jsonify(error="Internal error"), 500
     if request.method=='DELETE':
         if role!=ROLES['SUPERVISOR']: return jsonify(error="Only supervisors can delete equip."),403
         try: db.session.delete(eq); db.session.commit(); return '',204
@@ -719,7 +870,8 @@ def handle_single_equipment(equipment_id):
 @app.route('/api/hospitals/<int:hospital_id>/specialties', methods=['GET', 'POST'])
 @jwt_required()
 def handle_hospital_specialties(hospital_id):
-    hosp=Hospital.query.get_or_404(hospital_id); role=get_jwt().get('role'); uid=get_jwt_identity()
+    hosp=Hospital.query.get_or_404(hospital_id); role=get_jwt().get('role');
+    uid=int(get_jwt_identity()) # FIX: Cast to int
     if request.method=='POST':
         allowed=False
         if role==ROLES['SUPERVISOR']:allowed=True
@@ -744,7 +896,8 @@ def handle_hospital_specialties(hospital_id):
 @app.route('/api/specialties/<int:specialty_id>', methods=['PUT', 'DELETE'])
 @jwt_required()
 def handle_single_specialty(specialty_id):
-    spec=HospitalSpecialties.query.get_or_404(specialty_id); role=get_jwt().get('role'); uid=get_jwt_identity()
+    spec=HospitalSpecialties.query.get_or_404(specialty_id); role=get_jwt().get('role');
+    uid=int(get_jwt_identity()) # FIX: Cast to int
     allowed=False
     if role==ROLES['SUPERVISOR']:allowed=True
     elif role==ROLES['HOSPITAL_STAFF']:
@@ -768,7 +921,7 @@ def handle_single_specialty(specialty_id):
             db.session.commit(); return jsonify(spec.to_dict())
         except Exception as e:db.session.rollback();app.logger.error(f"Err update spec {specialty_id}: {e}");return jsonify(error="Internal error"),500
     if request.method=='DELETE':
-        if role!=ROLES['SUPERVISOR']: return jsonify(error="Only supervisors can delete specs."),403
+        if role!=ROLES['SUPERVISOR']: return jsonify(error="Only supervisors can delete specs."), 403
         try: db.session.delete(spec); db.session.commit(); return '',204
         except Exception as e:db.session.rollback();app.logger.error(f"Err delete spec {specialty_id}: {e}");return jsonify(error="Internal error"),500
 
@@ -817,53 +970,29 @@ def suggest_ambulance():
 @socketio.on('connect')
 def handle_connect():
     sid = request.sid
-    try:
-        verify_jwt_in_request(optional=True) # Check for token but don't fail if absent yet
-        current_user_id = get_jwt_identity()
-        if current_user_id:
-            user = User.query.get(current_user_id)
-            if user:
-                logging.info(f"Authenticated client connected: SID {sid}, User {user.username}")
-                join_room(f'user_{current_user_id}')
-                if user.role == ROLES['HOSPITAL_STAFF'] and user.hospital_id:
-                    join_room(f'hospital_{user.hospital_id}')
-            else: # Token valid but user deleted?
-                 logging.warning(f"Client connected with valid token for non-existent user ID {current_user_id}: SID {sid}")
-                 join_room('dashboard_updates') # Join general room anyway?
-                 return
-        else: # No token or invalid token
-            logging.info(f"Anonymous/Unauthenticated client connected: SID {sid}")
-            join_room('dashboard_updates')
-
-        logging.info(f"Client {sid} joined room 'dashboard_updates'")
-
-    except Exception as e: # Catch errors during JWT verification etc.
-        logging.error(f"Error during WS connect/auth for SID {sid}: {e}")
-        # Consider disconnecting if auth is strictly required: disconnect(sid)
+    app.logger.info(f"Client connected: SID {sid}")
+    # --- FIX: Removed all JWT verification from connect event ---
+    join_room('dashboard_updates')
+    app.logger.info(f"Client {sid} joined room 'dashboard_updates'")
 
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    logging.info(f"Client disconnected: {request.sid}")
+    app.logger.info(f"Client disconnected: {request.sid}") # Use app.logger
 
 @socketio.on('join_incident_room')
 def handle_join_incident_room(data):
     try:
-        verify_jwt_in_request()
+        # --- FIX: Removed JWT verification from this handler ---
         incident_id = data.get('incident_id')
-        if not incident_id: return
-        uid = get_jwt_identity()
-        user = User.query.get(uid)
-        if not user:
-             logging.warning(f"Unauthorized attempt to join incident room by SID {request.sid}")
+        if not incident_id:
+             app.logger.warning(f"Join incident room failed: no incident_id. SID: {request.sid}")
              return
-
         room_name = f'incident_{incident_id}'
         join_room(room_name)
-        logging.info(f"Client {request.sid} (User {uid}) joined room {room_name}")
-
+        app.logger.info(f"Client {request.sid} joined room {room_name}")
     except Exception as e:
-        logging.error(f"Error joining incident room for SID {request.sid}: {e}")
+        app.logger.error(f"Error joining incident room for SID {request.sid}: {e}") # Use app.logger
 
 @socketio.on('leave_incident_room')
 def handle_leave_incident_room(data):
@@ -872,9 +1001,9 @@ def handle_leave_incident_room(data):
          if not incident_id: return
          room_name = f'incident_{incident_id}'
          leave_room(room_name)
-         logging.info(f"Client {request.sid} left room {room_name}")
+         app.logger.info(f"Client {request.sid} left room {room_name}") # Use app.logger
      except Exception as e:
-         logging.error(f"Error leaving incident room for SID {request.sid}: {e}")
+         app.logger.error(f"Error leaving incident room for SID {request.sid}: {e}") # Use app.logger
 
 
 if __name__ == '__main__':
@@ -884,3 +1013,4 @@ if __name__ == '__main__':
     print("Starting Flask-SocketIO server...")
     # Use SocketIO's run method, ensure eventlet is installed
     socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=True)
+

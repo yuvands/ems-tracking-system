@@ -11,23 +11,79 @@
     <!-- Leaflet CSS & JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Socket.IO Client Library -->
+    <!-- ** NEW: Socket.IO Client Library ** -->
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
     <script>
-        // Tailwind Dark Mode Config
-        tailwind.config = { darkMode: 'class', theme: { extend: { colors: { gray: { 850: '#1f2937', 950: '#030712' } } } } }
-        // Apply theme from localStorage
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); } else { document.documentElement.classList.remove('dark'); }
+        // ** NEW: Tailwind Dark Mode Configuration **
+        tailwind.config = {
+          darkMode: 'class', // Enable dark mode based on class
+          theme: {
+            extend: {
+              colors: { // Example: Define some dark mode colors
+                gray: {
+                  850: '#1f2937', // Slightly lighter than 900
+                  950: '#030712', // Darker background
+                }
+              }
+            }
+          }
+        }
+        // Apply theme from localStorage on initial load
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
     </script>
     <style>
-        /* Base scrollbar styles */ ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; } ::-webkit-scrollbar-thumb { background: #a8a8a8; border-radius: 4px; } ::-webkit-scrollbar-thumb:hover { background: #555; }
-        /* Dark mode scrollbar */ .dark ::-webkit-scrollbar-track { background: #374151; } .dark ::-webkit-scrollbar-thumb { background: #6b7280; } .dark ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
-        .modal { display: none; opacity: 0; transition: opacity 0.3s ease-out; position: fixed; inset: 0; z-index: 50; background-color: rgba(0, 0, 0, 0.6); align-items: center; justify-content: center; backdrop-filter: blur(2px); } .modal.active { display: flex; opacity: 1; } #dashboard-section { display: none; } .role-hidden { display: none !important; }
-        /* Map */ #map { height: 45vh; width: 100%; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); margin-bottom: 1.5rem; z-index: 10; } .dark #map { border: 1px solid #4b5563; }
-        /* Custom Markers */ .leaflet-marker-icon { border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 2px var(--marker-color), 0 2px 5px rgba(0,0,0,0.3); width: 12px !important; height: 12px !important; margin-left: -6px !important; margin-top: -6px !important; background-color: var(--marker-color); } .incident-marker { --marker-color: #ef4444; } .ambulance-marker-available { --marker-color: #22c55e; } .ambulance-marker-busy { --marker-color: #3b82f6; } .ambulance-marker-unavailable { --marker-color: #6b7280; } .hospital-marker { --marker-color: #a855f7; }
-        /* Notification Banner */ #notification-banner { position: fixed; top: 1rem; left: 50%; transform: translateX(-50%); z-index: 100; padding: 0.75rem 1.5rem; border-radius: 0.5rem; color: white; font-weight: 500; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.3s ease-out, opacity 0.3s ease-out; transform: translate(-50%, -150%); opacity: 0; } #notification-banner.show { transform: translate(-50%, 0); opacity: 1; } #notification-banner.success { background-color: #16a34a; } #notification-banner.error { background-color: #dc2626; } #notification-banner.info { background-color: #2563eb; }
-        /* Dark Mode Focus Styles */ .dark input:focus, .dark select:focus, .dark textarea:focus { --tw-ring-color: #60a5fa; border-color: #60a5fa; } .dark select { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
-        /* Transitions */ button, .transition-colors { transition: background-color 0.2s ease-out, color 0.2s ease-out, border-color 0.2s ease-out; }
+        /* Base scrollbar styles */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #a8a8a8; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        /* Dark mode scrollbar */
+        .dark ::-webkit-scrollbar-track { background: #374151; } /* gray-700 */
+        .dark ::-webkit-scrollbar-thumb { background: #6b7280; } /* gray-500 */
+        .dark ::-webkit-scrollbar-thumb:hover { background: #9ca3af; } /* gray-400 */
+
+        .modal { display: none; opacity: 0; transition: opacity 0.3s ease-out; position: fixed; inset: 0; z-index: 50; background-color: rgba(0, 0, 0, 0.6); align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+        .modal.active { display: flex; opacity: 1; }
+        #dashboard-section { display: none; }
+        .role-hidden { display: none !important; }
+
+        /* Map */
+        #map { height: 45vh; /* Responsive height */ width: 100%; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); margin-bottom: 1.5rem; z-index: 10; /* Ensure map is below modals */ }
+        .dark #map { border: 1px solid #4b5563; /* gray-600 */ } /* Add border in dark mode */
+
+        /* Custom Markers */
+        .leaflet-marker-icon { border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 2px var(--marker-color), 0 2px 5px rgba(0,0,0,0.3); width: 12px !important; height: 12px !important; margin-left: -6px !important; margin-top: -6px !important; background-color: var(--marker-color); }
+        .incident-marker { --marker-color: #ef4444; } /* Red */
+        .ambulance-marker-available { --marker-color: #22c55e; } /* Green */
+        .ambulance-marker-busy { --marker-color: #3b82f6; } /* Blue */
+        .ambulance-marker-unavailable { --marker-color: #6b7280; } /* Gray */
+        .hospital-marker { --marker-color: #a855f7; } /* Purple */
+
+         /* Notification Banner */
+         #notification-banner {
+             position: fixed; top: 1rem; left: 50%; transform: translateX(-50%); z-index: 100;
+             padding: 0.75rem 1.5rem; border-radius: 0.5rem; color: white; font-weight: 500;
+             box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+             transform: translate(-50%, -150%); opacity: 0;
+        }
+        #notification-banner.show { transform: translate(-50%, 0); opacity: 1; }
+        #notification-banner.success { background-color: #16a34a; } /* green-600 */
+        #notification-banner.error { background-color: #dc2626; } /* red-600 */
+        #notification-banner.info { background-color: #2563eb; } /* blue-600 */
+
+        /* Input focus styles for dark mode */
+        .dark input:focus, .dark select:focus, .dark textarea:focus {
+            --tw-ring-color: #60a5fa; /* blue-400 */
+            border-color: #60a5fa;
+        }
+        .dark select { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
+
+        /* Subtle transitions */
+        button, .transition-colors { transition: background-color 0.2s ease-out, color 0.2s ease-out, border-color 0.2s ease-out; }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-950 font-sans text-gray-900 dark:text-gray-200">
@@ -35,8 +91,8 @@
     <!-- Login Section -->
     <div id="login-section" class="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
         <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-sm border dark:border-gray-700">
-            <div class="flex items-center justify-center mb-6 space-x-2"> <span class="text-indigo-600 dark:text-indigo-400"> <ion-icon name="pulse" class="text-4xl"></ion-icon> </span> <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">EMS Login</h1> </div>
-            <form id="login-form"> <div class="space-y-4"> <input type="text" id="username" placeholder="Username" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> <input type="password" id="password" placeholder="Password" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> <div id="login-error" class="text-red-600 dark:text-red-400 text-sm hidden">Invalid username or password.</div> <button type="submit" class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 transition-colors">Login</button> </div> </form>
+             <div class="flex items-center justify-center mb-6 space-x-2"> <span class="text-indigo-600 dark:text-indigo-400"> <ion-icon name="pulse" class="text-4xl"></ion-icon> </span> <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">EMS Login</h1> </div>
+             <form id="login-form"> <div class="space-y-4"> <input type="text" id="username" placeholder="Username" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> <input type="password" id="password" placeholder="Password" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> <div id="login-error" class="text-red-600 dark:text-red-400 text-sm hidden">Invalid username or password.</div> <button type="submit" class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 transition-colors">Login</button> </div> </form>
              <p class="text-center text-sm text-gray-500 dark:text-gray-400 mt-4"> (Use credentials created via /api/register or DB)</p>
         </div>
     </div>
@@ -97,42 +153,64 @@
         function addHospitalMarkers(hospitals){if(!map)return;hospitalMarkers.clearLayers();hospitals.forEach(h=>{if(h.latitude&&h.longitude){const m=L.marker([h.latitude,h.longitude],{icon:createMarkerIcon('hospital-marker')}).bindPopup(`<b>${h.name} (ID: ${h.id})</b><br>ER: ${h.er_current_occupancy??'N/A'}/${h.er_capacity??'N/A'}`);hospitalMarkers.addLayer(m);}});}
 
         // --- Fetch Helper ---
-        // --- Helper: API Fetch with Auth ---
         async function fetchWithAuth(url, options = {}) {
-            const token = localStorage.getItem('ems_token');
-            const headers = {
-                'Content-Type': 'application/json',
-                ...options.headers,
-            };
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-
-            // --- ADD THIS LINE FOR DEBUGGING ---
-            console.log(`Fetching ${url} with headers:`, JSON.stringify(headers));
-            // --- END ADDED LINE ---
+            const t = localStorage.getItem('ems_token');
+            const h = { 'Content-Type': 'application/json', ...options.headers };
+            if (t) { h['Authorization'] = `Bearer ${t}`; }
+            
+            // ** DEBUG LOG **
+            console.log(`Fetching ${url} with headers:`, JSON.stringify(h)); 
 
             try {
-                 const response = await fetch(url, { ...options, headers });
-                 if (response.status === 401) { // Unauthorized or token expired
-                     console.log("Token invalid or expired, logging out.");
-                     handleLogout();
-                     throw new Error('Session expired. Please log in again.');
-                 }
-                 return response;
-             } catch (networkError) {
-                 // Handle network errors (server down, CORS issues if not configured right)
-                 console.error("Network error during fetch:", networkError);
-                 showMessage('Network Error', 'Could not connect to the server. Please check if the backend is running and refresh.');
-                 throw networkError; // Re-throw to stop further processing
-             }
-        } 
+                const r = await fetch(url, { ...options, headers: h });
+                if (r.status === 401) {
+                    console.log("Token invalid, logging out.");
+                    handleLogout();
+                    throw new Error('Session expired.');
+                }
+                // ** DEBUG: Check for 422 here **
+                if (r.status === 422) {
+                    console.error(`Received 422 Unprocessable Entity for ${url}`);
+                    // Try to parse error message from backend
+                    try {
+                        const errData = await r.json();
+                        console.error("422 Error details:", errData.error);
+                        throw new Error(errData.error || `Request for ${url} failed: 422`);
+                    } catch (e) {
+                         throw new Error(`Request for ${url} failed with 422`);
+                    }
+                }
+                return r;
+            } catch (netErr) {
+                console.error("Fetch network err:", netErr);
+                showNotification('Network Error: Could not connect.', 'error');
+                throw netErr;
+            }
+        }
         
         // --- Message Box ---
         function showMessage(title, message) { console.log("Msg:", title, message); if (msgTitle && msgBody && msgBox) { msgTitle.textContent = title; msgBody.textContent = message; msgBox.classList.add('active'); } else { console.error("Msg box elements missing!"); } } function hideMessageBox() { console.log("Hide msg box"); if (msgBox) { msgBox.classList.remove('active'); } }
-        // --- View Switching ---
+        
+        // --- View Switching (MODIFIED) ---
         function showLogin() { if (loginSection) loginSection.style.display = 'flex'; if (dashboardSection) dashboardSection.style.display = 'none'; if (socket && socket.connected) socket.disconnect(); }
-        function showDashboard() { if (loginSection) loginSection.style.display = 'none'; if (dashboardSection) dashboardSection.style.display = 'flex'; connectWebSocket(); updateUIBasedOnRole(); setTimeout(initMap, 100); setTimeout(loadInitialData, 150); }
+        function showDashboard() {
+            if (loginSection) loginSection.style.display = 'none';
+            if (dashboardSection) dashboardSection.style.display = 'flex';
+            updateUIBasedOnRole();
+            setTimeout(initMap, 100); // Init map early
+            
+            console.log("Attempting to load initial data BEFORE connecting WebSocket...");
+            // Load data *before* connecting to WebSocket to avoid race condition
+            loadInitialData().then(() => {
+                console.log("Initial data load finished (or failed). Now connecting WebSocket.");
+                connectWebSocket();
+            }).catch((err) => {
+                // Still connect even if data load failed (e.g. 422), so user sees the error
+                console.log("Data load failed, but connecting WebSocket anyway. Error:", err.message);
+                connectWebSocket();
+            });
+        }
+
 
         // --- Role-Based UI ---
         function updateUIBasedOnRole() { if (!currentUser) return; const role = currentUser.role; console.log("UI for role:", role); let title = "Dashboard"; if (role === 'dispatcher') title = "Dispatcher Dashboard"; else if (role === 'supervisor') title = "Supervisor Dashboard"; else if (role === 'paramedic') title = "Paramedic Unit View"; else if (role === 'hospital_staff') title = "Hospital ER View"; if(dashboardTitle) dashboardTitle.textContent = title; if(userInfoName) userInfoName.textContent = `Welcome, ${currentUser.full_name || currentUser.username}`; if(userInfoRole) userInfoRole.textContent = `Role: ${role}`; const showAmbs = ['supervisor', 'dispatcher', 'paramedic'].includes(role); const showHosps = ['supervisor', 'dispatcher', 'hospital_staff'].includes(role); if (ambulanceSection) ambulanceSection.classList.toggle('role-hidden', !showAmbs); if (hospitalSection) hospitalSection.classList.toggle('role-hidden', !showHosps); const canAddAmb = ['supervisor', 'dispatcher'].includes(role); const canAddHosp = ['supervisor'].includes(role); const canCreateInc = ['supervisor', 'dispatcher'].includes(role); if (addAmbulanceBtn) addAmbulanceBtn.classList.toggle('role-hidden', !canAddAmb); if (addHospitalBtn) addHospitalBtn.classList.toggle('role-hidden', !canAddHosp); if (newIncidentBtn) newIncidentBtn.classList.toggle('role-hidden', !canCreateInc); }
@@ -140,8 +218,56 @@
         // --- Fetch Staff Profile ---
         async function fetchStaffProfile() { if (currentUser?.role !== 'paramedic' || !currentUser?.id) { currentStaffProfile = null; return; } console.log("Fetching staff profile:", currentUser.id); try { const r = await fetchWithAuth(`${API_URL}/staff`); if (!r.ok){console.warn("Paramedic fetch staff failed.");} const allS = await r.json(); currentStaffProfile = allS.find(s => s.user_id === currentUser.id); console.log("Staff profile:", currentStaffProfile); } catch (err) { console.error("Could not fetch staff profile:", err); currentStaffProfile = null; } }
 
-        // --- Data Loading & Rendering ---
-        async function loadInitialData() { console.log("Loading initial data..."); if (!localStorage.getItem('ems_token')) { console.log("No token."); return; } if (ambulanceList) ambulanceList.innerHTML = '<p class="text-gray-400 dark:text-gray-500">Loading...</p>'; if (incidentGrid) incidentGrid.innerHTML = '<p class="text-gray-500 dark:text-gray-400 col-span-full">Loading...</p>'; if (hospitalGrid) hospitalGrid.innerHTML = '<p class="text-gray-500 dark:text-gray-400 col-span-full">Loading...</p>'; await fetchStaffProfile(); try { const [ar, ir, hr] = await Promise.all([ fetchWithAuth(`${API_URL}/ambulances`), fetchWithAuth(`${API_URL}/incidents`), fetchWithAuth(`${API_URL}/hospitals`) ]); if (!ar.ok || !ir.ok || !hr.ok) { if (ar.status !== 401 && ir.status !== 401 && hr.status !== 401) { throw new Error(`Fetch failed: ${ar.status}, ${ir.status}, ${hr.status}`); } else { return; } } allAmbulances = await ar.json(); allIncidents = await ir.json(); allHospitals = await hr.json(); console.log("Data fetched:", { a: allAmbulances.length, i: allIncidents.length, h: allHospitals.length }); renderAmbulances(allAmbulances); renderIncidents(allIncidents); renderHospitals(allHospitals); populateDropdowns(allAmbulances, allHospitals); addIncidentMarkers(allIncidents); addAmbulanceMarkers(allAmbulances); addHospitalMarkers(allHospitals); } catch (err) { if (!err.message.includes('Session expired')) { console.error("Err loadInitialData:", err); showMessage('Data Load Error', `Could not load data. ${err.message}`); if (ambulanceList) ambulanceList.innerHTML = '<p class="text-red-500 dark:text-red-400">Failed.</p>'; if (incidentGrid) incidentGrid.innerHTML = '<p class="text-red-500 dark:text-red-400 col-span-full">Failed.</p>'; if (hospitalGrid) hospitalGrid.innerHTML = '<p class="text-red-500 dark:text-red-400 col-span-full">Failed.</p>'; } } }
+        // --- Data Loading & Rendering (MODIFIED) ---
+        async function loadInitialData() {
+            console.log("Loading initial data...");
+            if (!localStorage.getItem('ems_token')) {
+                console.log("No token.");
+                return Promise.resolve(); // Return resolved promise if no token
+            }
+            if (ambulanceList) ambulanceList.innerHTML = '<p class="text-gray-400 dark:text-gray-500">Loading...</p>';
+            if (incidentGrid) incidentGrid.innerHTML = '<p class="text-gray-500 dark:text-gray-400 col-span-full">Loading...</p>';
+            if (hospitalGrid) hospitalGrid.innerHTML = '<p class="text-gray-500 dark:text-gray-400 col-span-full">Loading...</p>';
+            
+            await fetchStaffProfile();
+            
+            // --- MODIFICATION: Return the Promise ---
+            return Promise.all([
+                fetchWithAuth(`${API_URL}/ambulances`),
+                fetchWithAuth(`${API_URL}/incidents`),
+                fetchWithAuth(`${API_URL}/hospitals`)
+            ]).then(async ([ar, ir, hr]) => {
+                if (!ar.ok || !ir.ok || !hr.ok) {
+                    if (ar.status !== 401 && ir.status !== 401 && hr.status !== 401) {
+                         // Throw the 422 error explicitly
+                         throw new Error(`Fetch failed: ${ar.status}, ${ir.status}, ${hr.status}`);
+                    } else {
+                        return; // 401 already handled by fetchWithAuth
+                    }
+                }
+                allAmbulances = await ar.json();
+                allIncidents = await ir.json();
+                allHospitals = await hr.json();
+                console.log("Data fetched:", { a: allAmbulances.length, i: allIncidents.length, h: allHospitals.length });
+                renderAmbulances(allAmbulances);
+                renderIncidents(allIncidents);
+                renderHospitals(allHospitals);
+                populateDropdowns(allAmbulances, allHospitals);
+                addIncidentMarkers(allIncidents);
+                addAmbulanceMarkers(allAmbulances);
+                addHospitalMarkers(allHospitals);
+            }).catch(err => {
+                if (!err.message.includes('Session expired')) {
+                    console.error("Err loadInitialData:", err);
+                    showMessage('Data Load Error', `Could not load data. ${err.message}`);
+                    if (ambulanceList) ambulanceList.innerHTML = '<p class="text-red-500 dark:text-red-400">Failed.</p>';
+                    if (incidentGrid) incidentGrid.innerHTML = '<p class="text-red-500 dark:text-red-400 col-span-full">Failed.</p>';
+                    if (hospitalGrid) hospitalGrid.innerHTML = '<p class="text-red-500 dark:text-red-400 col-span-full">Failed.</p>';
+                }
+                throw err; // Re-throw to be caught by showDashboard
+            });
+        }
+        // --- END MODIFICATION ---
 
         // --- RENDER FUNCTIONS ---
         function renderAmbulances(ambulances) { if (!ambulanceList) return; let aTS = ambulances; if (currentUser?.role === 'paramedic' && currentStaffProfile?.assigned_ambulance_id) { aTS = ambulances.filter(a => a.id === currentStaffProfile.assigned_ambulance_id); } ambulanceList.innerHTML = ''; if (aTS.length === 0) { ambulanceList.innerHTML = `<p class="text-gray-500 dark:text-gray-400">${currentUser?.role === 'paramedic' ? 'No assigned unit.' : 'No units.'}</p>`; return; } aTS.sort((a, b) => a.id - b.id); aTS.forEach(amb => { let sC='bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'; if(amb.status==='available')sC='bg-green-100 text-green-800 dark:bg-green-700 dark:text-green-100'; if(amb.status?.includes('en_route'))sC='bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-100'; if(amb.status==='at_scene')sC='bg-yellow-100 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100'; if(amb.status==='unavailable'||amb.status?.includes('maintenance'))sC='bg-red-100 text-red-800 dark:bg-red-700 dark:text-red-100'; const d=document.createElement('div'); d.className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700"; d.innerHTML=`<div class="flex justify-between items-center"><span class="font-semibold text-gray-700 dark:text-gray-200">${amb.license_plate}</span><span class="text-xs font-medium ${sC} px-2 py-0.5 rounded-full">${amb.status}</span></div><div class="text-sm text-gray-500 dark:text-gray-400 mt-2 flex justify-between items-center"><span>ID: ${amb.id}</span><button class="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline manage-ambulance-btn" data-id="${amb.id}">Manage</button></div>`; const mB=d.querySelector('.manage-ambulance-btn'); if(mB){mB.addEventListener('click',()=>openAmbulanceModal(amb.id));} ambulanceList.appendChild(d); }); }
