@@ -115,6 +115,7 @@
     <!-- Modals -->
     <!-- "New Incident" Modal -->
     <div id="incident-modal" class="modal"> <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md m-4 border dark:border-gray-700"> <h2 class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-100">Log New Incident</h2> <form id="incident-form"> <div class="space-y-4"> <input type="text" id="patient-name" placeholder="Patient Name (Optional)" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> <div class="flex space-x-4"> <input type="text" id="latitude" placeholder="Latitude" required class="w-1/2 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> <input type="text" id="longitude" placeholder="Longitude" required class="w-1/2 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> </div> <textarea id="description" placeholder="Description" rows="3" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"></textarea>
+            <input type="text" id="incident-required-equipment" placeholder="Required Equipment (comma-separated, optional)" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400">
             <!-- ** NEW: Suggest Button ** -->
             <button type="button" id="suggest-unit-btn" class="w-full text-sm text-indigo-600 dark:text-indigo-400 font-semibold py-2 px-4 rounded-lg hover:bg-indigo-50 dark:hover:bg-gray-700 transition-colors">Suggest Nearest Unit</button>
             <select id="ambulance-select" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"></select> <select id="hospital-select" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"></select> <div id="incident-form-error" class="text-red-600 dark:text-red-400 text-sm hidden"></div> <div class="flex justify-end space-x-3 pt-4"> <button type="button" id="cancel-incident" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancel</button> <button type="submit" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600">Create Incident</button> </div> </div> </form> </div> </div>
@@ -135,11 +136,24 @@
          </div>
     </div> </div>
     <!-- "Manage Ambulance" Modal -->
-    <div id="ambulance-modal" class="modal"> <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md m-4 border dark:border-gray-700"> <h2 id="ambulance-modal-title" class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-100">Manage Ambulance</h2> <form id="ambulance-form"> <input type="hidden" id="ambulance-id-input" value=""> <div class="space-y-4"> <input type="text" id="ambulance-plate" placeholder="License Plate" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> <select id="ambulance-status" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"></select> <div class="flex space-x-4"> <input type="text" id="ambulance-lat" placeholder="Current Latitude (Optional)" class="w-1/2 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> <input type="text" id="ambulance-lon" placeholder="Current Longitude (Optional)" class="w-1/2 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> </div> <div id="ambulance-form-error" class="text-red-600 dark:text-red-400 text-sm hidden"></div> <div class="flex justify-between items-center pt-4"> <div> <button type="button" id="delete-ambulance-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 role-hidden"> Delete </button> </div> <div class="space-x-3"> <button type="button" id="cancel-ambulance" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancel</button> <button type="submit" id="save-ambulance-btn" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"> Save </button> </div> </div> </div> </form> </div> </div>
+    <div id="ambulance-modal" class="modal"> <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md m-4 border dark:border-gray-700"> <h2 id="ambulance-modal-title" class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-100">Manage Ambulance</h2> <form id="ambulance-form"> <input type="hidden" id="ambulance-id-input" value=""> <div class="space-y-4"> <input type="text" id="ambulance-plate" placeholder="License Plate" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> <select id="ambulance-status" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"></select> <div class="flex space-x-4"> <input type="text" id="ambulance-lat" placeholder="Current Latitude (Optional)" class="w-1/2 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> <input type="text" id="ambulance-lon" placeholder="Current Longitude (Optional)" class="w-1/2 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> </div>
+            <input type="text" id="ambulance-specialty-equipment" placeholder="Specialty Equipment (comma-separated)" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> <div id="ambulance-form-error" class="text-red-600 dark:text-red-400 text-sm hidden"></div> <div class="flex justify-between items-center pt-4"> <div> <button type="button" id="delete-ambulance-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 role-hidden"> Delete </button> </div> <div class="space-x-3"> <button type="button" id="cancel-ambulance" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancel</button> <button type="submit" id="save-ambulance-btn" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"> Save </button> </div> </div> </div> </form> </div> </div>
     <!-- "Manage Hospital" Modal -->
     <div id="hospital-modal" class="modal"> <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-lg m-4 border dark:border-gray-700"> <h2 id="hospital-modal-title" class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-100">Manage Hospital</h2> <form id="hospital-form"> <input type="hidden" id="hospital-id-input" value=""> <div class="space-y-4"> <input type="text" id="hospital-name" placeholder="Hospital Name" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> <input type="text" id="hospital-address" placeholder="Address (Optional)" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> <div class="flex space-x-4"> <input type="text" id="hospital-lat" placeholder="Latitude" required class="w-1/2 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> <input type="text" id="hospital-lon" placeholder="Longitude" required class="w-1/2 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> </div> <div class="flex space-x-4"> <input type="number" id="hospital-er-capacity" placeholder="ER Capacity (Optional)" class="w-1/2 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> <input type="number" id="hospital-er-occupancy" placeholder="ER Occupancy (Optional)" class="w-1/2 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"> </div> <div id="hospital-form-error" class="text-red-600 dark:text-red-400 text-sm hidden"></div> <div class="flex justify-between items-center pt-4"> <div> <button type="button" id="delete-hospital-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 role-hidden"> Delete </button> </div> <div class="space-x-3"> <button type="button" id="cancel-hospital" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancel</button> <button type="submit" id="save-hospital-btn" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"> Save </button> </div> </div> </div> </form> </div> </div>
     <!-- "Manage Incident" Modal -->
-    <div id="manage-incident-modal" class="modal"> <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-lg m-4 border dark:border-gray-700"> <h2 id="manage-incident-modal-title" class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-100">Manage Incident</h2> <form id="manage-incident-form"> <input type="hidden" id="manage-incident-id-input" value=""> <div class="space-y-4"> <div> <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Patient Info</label> <p id="manage-incident-patient-name" class="mt-1 text-gray-600 dark:text-gray-400 text-sm">Loading...</p> </div> <textarea id="manage-incident-description" placeholder="Description" rows="3" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"></textarea> <select id="manage-incident-ambulance-select" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"></select> <select id="manage-incident-hospital-select" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"></select> <select id="manage-incident-status" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"></select> <div id="manage-incident-form-error" class="text-red-600 dark:text-red-400 text-sm hidden"></div> <div class="flex justify-between items-center pt-4"> <div> <button type="button" id="delete-incident-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 role-hidden"> Delete </button> </div> <div class="space-x-3"> <button type="button" id="cancel-manage-incident" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancel</button> <button type="submit" id="save-manage-incident-btn" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"> Update Incident </button> </div> </div> </div> </form> </div> </div>
+    <div id="manage-incident-modal" class="modal"> <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-lg m-4 border dark:border-gray-700"> <h2 id="manage-incident-modal-title" class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-100">Manage Incident</h2> <form id="manage-incident-form"> <input type="hidden" id="manage-incident-id-input" value=""> <div class="space-y-4"> <div> <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Patient Info</label> <p id="manage-incident-patient-name" class="mt-1 text-gray-600 dark:text-gray-400 text-sm">Loading...</p> </div> <textarea id="manage-incident-description" placeholder="Description" rows="3" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"></textarea> <select id="manage-incident-ambulance-select" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"></select> <select id="manage-incident-hospital-select" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"></select> <select id="manage-incident-status" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"></select>
+
+            <!-- Incident Chat Interface -->
+            <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">Incident Chat</h3>
+                <div id="incident-chat-messages" class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg h-48 overflow-y-auto mb-3 space-y-2"></div>
+                <form id="incident-chat-form" class="flex space-x-2">
+                    <input type="text" id="incident-chat-input" placeholder="Type your message..." class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-600 dark:text-gray-100">
+                    <button type="submit" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600">Send</button>
+                </form>
+            </div>
+
+            <div id="manage-incident-form-error" class="text-red-600 dark:text-red-400 text-sm hidden"></div> <div class="flex justify-between items-center pt-4"> <div> <button type="button" id="delete-incident-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 role-hidden"> Delete </button> </div> <div class="space-x-3"> <button type="button" id="cancel-manage-incident" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancel</button> <button type="submit" id="save-manage-incident-btn" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"> Update Incident </button> </div> </div> </div> </form> </div> </div>
     <!-- Custom Message Box -->
     <div id="message-box" class="modal"> <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-sm m-4 border dark:border-gray-700"> <h2 id="message-title" class="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-100">Message</h2> <p id="message-body" class="text-gray-600 dark:text-gray-300 mb-6">Error</p> <button id="message-ok-btn" class="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"> OK </button> </div> </div>
     <!-- ** NEW: Confirmation Modal ** -->
@@ -154,9 +168,95 @@
         const SOCKET_URL = 'http://127.0.0.1:5000';
 
         // --- DOM Elements ---
-        // (All elements are assumed to be found, getElementById...)
-        const loginSection=document.getElementById('login-section');const dashboardSection=document.getElementById('dashboard-section');const loginForm=document.getElementById('login-form');const loginError=document.getElementById('login-error');const usernameInput=document.getElementById('username');const passwordInput=document.getElementById('password');const logoutBtn=document.getElementById('logout-btn');const userInfoName=document.getElementById('user-info-name');const userInfoRole=document.getElementById('user-info-role');const dashboardTitle=document.getElementById('dashboard-title');const ambulanceSection=document.getElementById('ambulance-section');const ambulanceList=document.getElementById('ambulance-list');const incidentSection=document.getElementById('incident-section');const incidentGrid=document.getElementById('incident-grid');const hospitalSection=document.getElementById('hospital-section');const hospitalGrid=document.getElementById('hospital-grid');const newIncidentBtn=document.getElementById('new-incident-btn');const addAmbulanceBtn=document.getElementById('add-ambulance-btn');const addHospitalBtn=document.getElementById('add-hospital-btn');const incidentModal=document.getElementById('incident-modal');const cancelIncidentBtn=document.getElementById('cancel-incident');const incidentForm=document.getElementById('incident-form');const incidentFormError=document.getElementById('incident-form-error');const ambSelect=document.getElementById('ambulance-select');const hospSelect=document.getElementById('hospital-select');const suggestUnitBtn=document.getElementById('suggest-unit-btn');const vitalsModal=document.getElementById('vitals-modal');const closeVitalsBtn=document.getElementById('close-vitals-btn');const vitalsContent=document.getElementById('vitals-content');const addVitalsFormContainer=document.getElementById('add-vitals-form-container');const addVitalsForm=document.getElementById('add-vitals-form');const vitalsFormError=document.getElementById('vitals-form-error');const ambulanceModal=document.getElementById('ambulance-modal');const ambulanceModalTitle=document.getElementById('ambulance-modal-title');const ambulanceForm=document.getElementById('ambulance-form');const ambulanceFormError=document.getElementById('ambulance-form-error');const ambulanceIdInput=document.getElementById('ambulance-id-input');const ambulancePlate=document.getElementById('ambulance-plate');const ambulanceStatus=document.getElementById('ambulance-status');const ambulanceLat=document.getElementById('ambulance-lat');const ambulanceLon=document.getElementById('ambulance-lon');const cancelAmbulanceBtn=document.getElementById('cancel-ambulance');const deleteAmbulanceBtn=document.getElementById('delete-ambulance-btn');const saveAmbulanceBtn=document.getElementById('save-ambulance-btn');const hospitalModal=document.getElementById('hospital-modal');const hospitalModalTitle=document.getElementById('hospital-modal-title');const hospitalForm=document.getElementById('hospital-form');const hospitalFormError=document.getElementById('hospital-form-error');const hospitalIdInput=document.getElementById('hospital-id-input');const hospitalName=document.getElementById('hospital-name');const hospitalAddress=document.getElementById('hospital-address');const hospitalLat=document.getElementById('hospital-lat');const hospitalLon=document.getElementById('hospital-lon');const hospitalErCapacity=document.getElementById('hospital-er-capacity');const hospitalErOccupancy=document.getElementById('hospital-er-occupancy');const cancelHospitalBtn=document.getElementById('cancel-hospital');const deleteHospitalBtn=document.getElementById('delete-hospital-btn');const saveHospitalBtn=document.getElementById('save-hospital-btn');const manageIncidentModal=document.getElementById('manage-incident-modal');const manageIncidentModalTitle=document.getElementById('manage-incident-modal-title');const manageIncidentForm=document.getElementById('manage-incident-form');const manageIncidentIdInput=document.getElementById('manage-incident-id-input');const manageIncidentPatientName=document.getElementById('manage-incident-patient-name');const manageIncidentDescription=document.getElementById('manage-incident-description');const manageIncidentAmbulanceSelect=document.getElementById('manage-incident-ambulance-select');const manageIncidentHospitalSelect=document.getElementById('manage-incident-hospital-select');const manageIncidentStatus=document.getElementById('manage-incident-status');const manageIncidentFormError=document.getElementById('manage-incident-form-error');const cancelManageIncidentBtn=document.getElementById('cancel-manage-incident');const saveManageIncidentBtn=document.getElementById('save-manage-incident-btn');const deleteIncidentBtn=document.getElementById('delete-incident-btn');const msgBox=document.getElementById('message-box');const msgTitle=document.getElementById('message-title');const msgBody=document.getElementById('message-body');const msgOkBtn=document.getElementById('message-ok-btn');const themeToggleBtn = document.getElementById('theme-toggle');const notificationBanner = document.getElementById('notification-banner'); const notificationMessage = document.getElementById('notification-message');
-        const adminUtilsSection = document.getElementById('admin-utils-section'); const seedDataBtn = document.getElementById('seed-data-btn'); const confirmModal = document.getElementById('confirm-modal'); const confirmTitle = document.getElementById('confirm-title'); const confirmBody = document.getElementById('confirm-body'); const confirmCancelBtn = document.getElementById('confirm-cancel-btn'); const confirmOkBtn = document.getElementById('confirm-ok-btn');
+        const loginSection = document.getElementById('login-section');
+        const dashboardSection = document.getElementById('dashboard-section');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const logoutBtn = document.getElementById('logout-btn');
+        const userInfoName = document.getElementById('user-info-name');
+        const userInfoRole = document.getElementById('user-info-role');
+        const dashboardTitle = document.getElementById('dashboard-title');
+        const ambulanceSection = document.getElementById('ambulance-section');
+        const ambulanceList = document.getElementById('ambulance-list');
+        const incidentSection = document.getElementById('incident-section');
+        const incidentGrid = document.getElementById('incident-grid');
+        const hospitalSection = document.getElementById('hospital-section');
+        const hospitalGrid = document.getElementById('hospital-grid');
+        const newIncidentBtn = document.getElementById('new-incident-btn');
+        const addAmbulanceBtn = document.getElementById('add-ambulance-btn');
+        const addHospitalBtn = document.getElementById('add-hospital-btn');
+        const incidentModal = document.getElementById('incident-modal');
+        const cancelIncidentBtn = document.getElementById('cancel-incident');
+        const incidentForm = document.getElementById('incident-form');
+        const incidentFormError = document.getElementById('incident-form-error');
+        const ambSelect = document.getElementById('ambulance-select');
+        const hospSelect = document.getElementById('hospital-select');
+        const suggestUnitBtn = document.getElementById('suggest-unit-btn');
+        const vitalsModal = document.getElementById('vitals-modal');
+        const closeVitalsBtn = document.getElementById('close-vitals-btn');
+        const vitalsContent = document.getElementById('vitals-content');
+        const addVitalsFormContainer = document.getElementById('add-vitals-form-container');
+        const addVitalsForm = document.getElementById('add-vitals-form');
+        const vitalsFormError = document.getElementById('vitals-form-error');
+        const manageIncidentModal = document.getElementById('manage-incident-modal');
+        const cancelManageIncidentBtn = document.getElementById('cancel-manage-incident');
+        const manageIncidentForm = document.getElementById('manage-incident-form');
+        const manageIncidentIdInput = document.getElementById('manage-incident-id-input');
+        const manageIncidentPatientName = document.getElementById('manage-incident-patient-name');
+        const manageIncidentDescription = document.getElementById('manage-incident-description');
+        const manageIncidentAmbulanceSelect = document.getElementById('manage-incident-ambulance-select');
+        const manageIncidentHospitalSelect = document.getElementById('manage-incident-hospital-select');
+        const manageIncidentStatus = document.getElementById('manage-incident-status');
+        const manageIncidentFormError = document.getElementById('manage-incident-form-error');
+        const saveManageIncidentBtn = document.getElementById('save-manage-incident-btn');
+        const deleteIncidentBtn = document.getElementById('delete-incident-btn');
+        const msgTitle = document.getElementById('message-title');
+        const msgBody = document.getElementById('message-body');
+        const msgBox = document.getElementById('message-box');
+        const msgOkBtn = document.getElementById('message-ok-btn');
+        const ambulanceModal = document.getElementById('ambulance-modal');
+        const ambulanceModalTitle = document.getElementById('ambulance-modal-title');
+        const ambulanceForm = document.getElementById('ambulance-form');
+        const ambulanceIdInput = document.getElementById('ambulance-id-input');
+        const ambulancePlate = document.getElementById('ambulance-plate');
+        const ambulanceStatus = document.getElementById('ambulance-status');
+        const ambulanceLat = document.getElementById('ambulance-lat');
+        const ambulanceLon = document.getElementById('ambulance-lon');
+        const ambulanceSpecialtyEquipment = document.getElementById('ambulance-specialty-equipment');
+        const ambulanceFormError = document.getElementById('ambulance-form-error');
+        const deleteAmbulanceBtn = document.getElementById('delete-ambulance-btn');
+        const cancelAmbulanceBtn = document.getElementById('cancel-ambulance');
+        const saveAmbulanceBtn = document.getElementById('save-ambulance-btn');
+        const hospitalModal = document.getElementById('hospital-modal');
+        const hospitalModalTitle = document.getElementById('hospital-modal-title');
+        const hospitalForm = document.getElementById('hospital-form');
+        const hospitalIdInput = document.getElementById('hospital-id-input');
+        const hospitalName = document.getElementById('hospital-name');
+        const hospitalAddress = document.getElementById('hospital-address');
+        const hospitalLat = document.getElementById('hospital-lat');
+        const hospitalLon = document.getElementById('hospital-lon');
+        const hospitalErCapacity = document.getElementById('hospital-er-capacity');
+        const hospitalErOccupancy = document.getElementById('hospital-er-occupancy');
+        const hospitalFormError = document.getElementById('hospital-form-error');
+        const deleteHospitalBtn = document.getElementById('delete-hospital-btn');
+        const cancelHospitalBtn = document.getElementById('cancel-hospital');
+        const saveHospitalBtn = document.getElementById('save-hospital-btn');
+        const adminUtilsSection = document.getElementById('admin-utils-section');
+        const seedDataBtn = document.getElementById('seed-data-btn');
+        const confirmModal = document.getElementById('confirm-modal');
+        const confirmTitle = document.getElementById('confirm-title');
+        const confirmBody = document.getElementById('confirm-body');
+        const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
+        const confirmOkBtn = document.getElementById('confirm-ok-btn');
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const incidentChatMessages = document.getElementById('incident-chat-messages');
+        const incidentChatForm = document.getElementById('incident-chat-form');
+        const incidentChatInput = document.getElementById('incident-chat-input');
+        const incidentRequiredEquipment = document.getElementById('incident-required-equipment');
+        const notificationBanner = document.getElementById('notification-banner');
+        const notificationMessage = document.getElementById('notification-message');
 
         // --- Map Variables ---
         let map = null; const incidentMarkers = L.layerGroup(); const ambulanceMarkers = L.layerGroup(); const hospitalMarkers = L.layerGroup();
@@ -190,8 +290,155 @@
             hideConfirm(); // Close modal
         }
 
-        // --- WebSocket Connection ---
-        function connectWebSocket() { const token = localStorage.getItem('ems_token'); if (socket && socket.connected) { console.log("Disconnecting existing socket..."); socket.disconnect(); } console.log("Attempting WebSocket connection..."); socket = io(SOCKET_URL, { /* auth: { token } */ }); socket.on('connect', () => { console.log('WebSocket connected:', socket.id); showNotification('Connected to real-time updates.', 'success'); }); socket.on('disconnect', (reason) => { console.log('WebSocket disconnected:', reason); showNotification('Real-time connection lost.', 'error'); }); socket.on('connect_error', (error) => { console.error('WebSocket connection error:', error); showNotification('Failed to connect for real-time updates.', 'error'); }); socket.on('ambulance_update', (data) => { console.log('Received ambulance_update:', data); updateAmbulanceData(data); showNotification(`Ambulance ${data.license_plate} updated.`, 'info'); }); socket.on('incident_update', (data) => { console.log('Received incident_update:', data); updateIncidentData(data); showNotification(`Incident #${data.id} updated.`, 'info'); }); socket.on('vitals_update', (data) => { console.log('Received vitals_update:', data); if (vitalsModal && vitalsModal.classList.contains('active')) { const currentIncidentId = vitalsModal.dataset.incidentId; if (currentIncidentId && parseInt(currentIncidentId) === data.incident_id) { showVitals(data.incident_id); } } showNotification(`New vitals for Incident #${data.incident_id}.`, 'info', 2000); }); socket.on('hospital_update', (data) => { console.log('Received hospital_update:', data); updateHospitalData(data); showNotification(`Hospital ${data.name} updated.`, 'info'); }); socket.on('ambulance_deleted', (data) => { console.log('Received ambulance_deleted:', data); removeAmbulanceData(data.id); showNotification(`Ambulance ID ${data.id} deleted.`, 'info'); }); socket.on('hospital_deleted', (data) => { console.log('Received hospital_deleted:', data); removeHospitalData(data.id); showNotification(`Hospital ID ${data.id} deleted.`, 'info'); }); socket.on('incident_deleted', (data) => { console.log('Received incident_deleted:', data); removeIncidentData(data.id); showNotification(`Incident ID ${data.id} deleted.`, 'info'); }); }
+                // --- WebSocket Connection ---
+
+                function connectWebSocket() {
+
+                    const token = localStorage.getItem('ems_token');
+
+                    if (socket && socket.connected) {
+
+                        console.log("Disconnecting existing socket...");
+
+                        socket.disconnect();
+
+                    }
+
+                    console.log("Attempting WebSocket connection...");
+
+                    socket = io(SOCKET_URL, { /* auth: { token } */ });
+
+        
+
+                    // Socket.IO listener for incident messages
+
+                    socket.on('incident_message', (message) => {
+
+                        console.log('Received incident_message:', message);
+
+                        const currentIncidentId = manageIncidentIdInput?.value;
+
+                        if (currentIncidentId && parseInt(currentIncidentId) === message.incident_id) {
+
+                            // Only render if the chat modal for this incident is open
+
+                            renderChatMessages([], message); // Append the new message
+
+                        } else {
+
+                            showNotification(`New message in Incident #${message.incident_id} from ${message.user_full_name}.`, 'info', 3000);
+
+                        }
+
+                    });
+
+        
+
+                    socket.on('connect', () => {
+
+                        console.log('WebSocket connected:', socket.id);
+
+                        showNotification('Connected to real-time updates.', 'success');
+
+                    });
+
+                    socket.on('disconnect', (reason) => {
+
+                        console.log('WebSocket disconnected:', reason);
+
+                        showNotification('Real-time connection lost.', 'error');
+
+                    });
+
+                    socket.on('connect_error', (error) => {
+
+                        console.error('WebSocket connection error:', error);
+
+                        showNotification('Failed to connect for real-time updates.', 'error');
+
+                    });
+
+                    socket.on('ambulance_update', (data) => {
+
+                        console.log('Received ambulance_update:', data);
+
+                        updateAmbulanceData(data);
+
+                        showNotification(`Ambulance ${data.license_plate} updated.`, 'info');
+
+                    });
+
+                    socket.on('incident_update', (data) => {
+
+                        console.log('Received incident_update:', data);
+
+                        updateIncidentData(data);
+
+                        showNotification(`Incident #${data.id} updated.`, 'info');
+
+                    });
+
+                    socket.on('vitals_update', (data) => {
+
+                        console.log('Received vitals_update:', data);
+
+                        if (vitalsModal && vitalsModal.classList.contains('active')) {
+
+                            const currentIncidentId = vitalsModal.dataset.incidentId;
+
+                            if (currentIncidentId && parseInt(currentIncidentId) === data.incident_id) {
+
+                                showVitals(data.incident_id);
+
+                            }
+
+                        }
+
+                        showNotification(`New vitals for Incident #${data.incident_id}.`, 'info', 2000);
+
+                    });
+
+                    socket.on('hospital_update', (data) => {
+
+                        console.log('Received hospital_update:', data);
+
+                        updateHospitalData(data);
+
+                        showNotification(`Hospital ${data.name} updated.`, 'info');
+
+                    });
+
+                    socket.on('ambulance_deleted', (data) => {
+
+                        console.log('Received ambulance_deleted:', data);
+
+                        removeAmbulanceData(data.id);
+
+                        showNotification(`Ambulance ID ${data.id} deleted.`, 'info');
+
+                    });
+
+                    socket.on('hospital_deleted', (data) => {
+
+                        console.log('Received hospital_deleted:', data);
+
+                        removeHospitalData(data.id);
+
+                        showNotification(`Hospital ID ${data.id} deleted.`, 'info');
+
+                    });
+
+                    socket.on('incident_deleted', (data) => {
+
+                        console.log('Received incident_deleted:', data);
+
+                        removeIncidentData(data.id);
+
+                        showNotification(`Incident ID ${data.id} deleted.`, 'info');
+
+                    });
+
+                }
         // --- Functions to Update State from WebSockets ---
         function updateAmbulanceData(ua) { const i = allAmbulances.findIndex(a => a.id === ua.id); if (i !== -1) { allAmbulances[i] = ua; } else { allAmbulances.push(ua); } renderAmbulances(allAmbulances); addAmbulanceMarkers(allAmbulances); populateDropdowns(allAmbulances, allHospitals); }
         function updateIncidentData(ui) { const i = allIncidents.findIndex(inc => inc.id === ui.id); if (i !== -1) { allIncidents[i] = ui; } else { allIncidents.push(ui); } renderIncidents(allIncidents); addIncidentMarkers(allIncidents); }
@@ -275,7 +522,7 @@
         }
 
         // --- RENDER FUNCTIONS ---
-        function renderAmbulances(ambulances) { if (!ambulanceList) return; let aTS = ambulances; if (currentUser?.role === 'paramedic' && currentStaffProfile?.assigned_ambulance_id) { aTS = ambulances.filter(a => a.id === currentStaffProfile.assigned_ambulance_id); } ambulanceList.innerHTML = ''; if (aTS.length === 0) { ambulanceList.innerHTML = `<p class="text-gray-500 dark:text-gray-400">${currentUser?.role === 'paramedic' ? 'No assigned unit.' : 'No units.'}</p>`; return; } aTS.sort((a, b) => a.id - b.id); aTS.forEach(amb => { let sC='bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'; if(amb.status==='available')sC='bg-green-100 text-green-800 dark:bg-green-700 dark:text-green-100'; if(amb.status?.includes('en_route'))sC='bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-100'; if(amb.status==='at_scene')sC='bg-yellow-100 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100'; if(amb.status==='unavailable'||amb.status?.includes('maintenance'))sC='bg-red-100 text-red-800 dark:bg-red-700 dark:text-red-100'; const d=document.createElement('div'); d.className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"; d.innerHTML=`<div class="flex justify-between items-center"><span class="font-semibold text-gray-700 dark:text-gray-200">${amb.license_plate}</span><span class="text-xs font-medium ${sC} px-2 py-0.5 rounded-full">${amb.status}</span></div><div class="text-sm text-gray-500 dark:text-gray-400 mt-2 flex justify-between items-center"><span>ID: ${amb.id}</span><button class="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline manage-ambulance-btn" data-id="${amb.id}">Manage</button></div>`; const mB=d.querySelector('.manage-ambulance-btn'); if(mB){mB.addEventListener('click',()=>openAmbulanceModal(amb.id));} ambulanceList.appendChild(d); }); }
+        function renderAmbulances(ambulances) { if (!ambulanceList) return; let aTS = ambulances; if (currentUser?.role === 'paramedic' && currentStaffProfile?.assigned_ambulance_id) { aTS = ambulances.filter(a => a.id === currentStaffProfile.assigned_ambulance_id); } ambulanceList.innerHTML = ''; if (aTS.length === 0) { ambulanceList.innerHTML = `<p class="text-gray-500 dark:text-gray-400">${currentUser?.role === 'paramedic' ? 'No assigned unit.' : 'No units.'}</p>`; return; } aTS.sort((a, b) => a.id - b.id); aTS.forEach(amb => { let sC='bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'; if(amb.status==='available')sC='bg-green-100 text-green-800 dark:bg-green-700 dark:text-green-100'; if(amb.status?.includes('en_route'))sC='bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-100'; if(amb.status==='at_scene')sC='bg-yellow-100 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100'; if(amb.status==='unavailable'||amb.status?.includes('maintenance'))sC='bg-red-100 text-red-800 dark:bg-red-700 dark:text-red-100'; const d=document.createElement('div'); d.className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"; d.innerHTML=`<div class="flex justify-between items-center"><span class="font-semibold text-gray-700 dark:text-gray-200">${amb.license_plate}</span><span class="text-xs font-medium ${sC} px-2 py-0.5 rounded-full">${amb.status}</span></div><div class="text-sm text-gray-500 dark:text-gray-400 mt-2"><span>ID: ${amb.id}</span><br><span>Equipment: ${amb.specialty_equipment || 'None'}</span></div><div class="text-sm text-gray-500 dark:text-gray-400 mt-2 flex justify-between items-center"><button class="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline manage-ambulance-btn" data-id="${amb.id}">Manage</button></div>`; const mB=d.querySelector('.manage-ambulance-btn'); if(mB){mB.addEventListener('click',()=>openAmbulanceModal(amb.id));} ambulanceList.appendChild(d); }); }
         function renderIncidents(incidents) { if (!incidentGrid) return; let iTS = incidents; if (currentUser?.role === 'paramedic' && currentStaffProfile?.assigned_ambulance_id) { iTS = incidents.filter(i => i.ambulance_id === currentStaffProfile.assigned_ambulance_id && ['active', 'en_route_to_scene', 'at_scene', 'en_route_to_hospital'].includes(i.status) ); } else if (currentUser?.role === 'hospital_staff') { const userHospitalId = currentUser?.hospital_id; if (userHospitalId) { iTS = incidents.filter(i => i.destination_hospital_id === userHospitalId && i.status === 'en_route_to_hospital'); } else { iTS = []; } } else { iTS = incidents; } incidentGrid.innerHTML = ''; if (iTS.length === 0) { incidentGrid.innerHTML = '<p class="text-gray-500 dark:text-gray-400 col-span-full">No relevant incidents found.</p>'; return; } iTS.sort((a,b)=>new Date(b.incident_time||0)-new Date(a.incident_time||0)); iTS.forEach(inc => { let sC='bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'; if(inc.status==='active')sC='bg-red-100 text-red-800 dark:bg-red-700 dark:text-red-100'; if(inc.status?.includes('en_route'))sC='bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-100'; if(inc.status==='at_scene')sC='bg-yellow-100 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100'; if(inc.status==='closed')sC='bg-green-100 text-green-800 dark:bg-green-700 dark:text-green-100'; if(inc.status==='cancelled')sC='bg-gray-100 text-gray-500 dark:bg-gray-600 dark:text-gray-400'; const d=document.createElement('div'); d.className="bg-white dark:bg-gray-850 p-5 rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 flex flex-col"; d.innerHTML=` <div class="flex justify-between items-center mb-3"><h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Incident #${inc.id}</h3><span class="text-xs font-medium ${sC} px-2 py-0.5 rounded-full">${inc.status}</span></div> <p class="text-sm text-gray-600 dark:text-gray-300 mb-4 truncate flex-grow">${inc.description||'No description.'}</p> <div class="space-y-2 text-sm text-gray-700 dark:text-gray-300 mb-4"> <div class="flex items-center space-x-2"><ion-icon name="location-sharp" class="text-indigo-500 dark:text-indigo-400"></ion-icon><span>${inc.latitude}, ${inc.longitude}</span></div> <div class="flex items-center space-x-2"><ion-icon name="medkit-sharp" class="text-green-500 dark:text-green-400"></ion-icon><span>Unit: ${inc.ambulance_plate || (inc.ambulance_id ? `ID ${inc.ambulance_id}` : 'N/A')}</span></div> <div class="flex items-center space-x-2"><ion-icon name="business-sharp" class="text-blue-500 dark:text-blue-400"></ion-icon><span>Dest: ${inc.hospital_name || (inc.destination_hospital_id ? `ID ${inc.destination_hospital_id}` : 'N/A')}</span></div> </div> <div class="mt-auto pt-4 border-t border-gray-100 dark:border-gray-700 flex space-x-2"> <button class="flex-1 text-indigo-600 dark:text-indigo-400 font-semibold py-2 px-3 rounded-lg hover:bg-indigo-50 dark:hover:bg-gray-700 transition-colors text-sm show-vitals-btn" data-id="${inc.id}"> Vitals </button> <button class="flex-1 text-gray-600 dark:text-gray-300 font-semibold py-2 px-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm manage-incident-btn ${currentUser?.role === 'hospital_staff' ? 'role-hidden' : ''}" data-id="${inc.id}"> Manage </button> </div>`; const vB=d.querySelector('.show-vitals-btn'); if(vB){vB.addEventListener('click',()=>showVitals(inc.id));} const mB=d.querySelector('.manage-incident-btn'); if(mB){mB.addEventListener('click',()=>openManageIncidentModal(inc.id));} incidentGrid.appendChild(d); }); }
         function renderHospitals(hospitals) { if (!hospitalGrid) return; hospitalGrid.innerHTML = ''; if (!hospitals||hospitals.length===0) { hospitalGrid.innerHTML = '<p class="text-gray-500 dark:text-gray-400 col-span-full">No hospitals.</p>'; return; } hospitals.sort((a,b)=>a.id-b.id); hospitals.forEach(h => { let cH='<span class="text-xs text-gray-400 dark:text-gray-500">Capacity N/A</span>'; if(h.er_capacity!=null&&h.er_current_occupancy!=null){ const cap=parseInt(h.er_capacity); const occ=parseInt(h.er_current_occupancy); let oP=cap>0?(occ/cap)*100:0; let cC='bg-green-100 text-green-800 dark:bg-green-700 dark:text-green-100'; if(oP>70)cC='bg-yellow-100 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100'; if(oP>=90)cC='bg-red-100 text-red-800 dark:bg-red-700 dark:text-red-100'; cH=`<span class="text-xs font-medium px-2 py-0.5 rounded-full ${cC}">ER: ${occ}/${cap}</span>`; } const d=document.createElement('div'); d.className="bg-white dark:bg-gray-850 p-5 rounded-lg shadow-lg border border-gray-100 dark:border-gray-700"; d.innerHTML=`<div class="flex justify-between items-start mb-3"><h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate mr-2">${h.name}</h3>${cH}</div><p class="text-sm text-gray-600 dark:text-gray-300 truncate">${h.address||'Address N/A'}</p><div class="text-sm text-gray-400 dark:text-gray-500 mt-2 flex justify-between items-center"><div><span class="font-medium">ID: ${h.id}</span> | <span class="text-gray-500 dark:text-gray-400">${h.latitude}, ${h.longitude}</span></div><button class="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline manage-hospital-btn" data-id="${h.id}"> Manage </button></div>`; const mB=d.querySelector('.manage-hospital-btn'); if(mB){mB.addEventListener('click',()=>openHospitalModal(h.id));} hospitalGrid.appendChild(d); }); }
         function populateDropdowns(ambulances, hospitals, targetAmbDropdown = ambSelect, targetHospDropdown = hospSelect) { if (!targetAmbDropdown || !targetHospDropdown) return; targetAmbDropdown.innerHTML = '<option value="">Assign Ambulance (Optional)</option>'; ambulances.forEach(amb => { targetAmbDropdown.innerHTML += `<option value="${amb.id}">${amb.license_plate} (ID: ${amb.id})${amb.status !== 'available' ? ' - '+amb.status : ''}</option>`; }); targetHospDropdown.innerHTML = '<option value="">Assign Hospital (Optional)</option>'; hospitals.forEach(hosp => { targetHospDropdown.innerHTML += `<option value="${hosp.id}">${hosp.name} (ID: ${hosp.id})</option>`; }); }
@@ -286,16 +533,52 @@
         async function handleIncidentSubmit(e) { console.log("handleIncidentSubmit"); e.preventDefault(); if (incidentFormError) incidentFormError.classList.add('hidden'); const d={ patient_name: document.getElementById('patient-name')?.value||null, location_lat: document.getElementById('latitude')?.value, location_lon: document.getElementById('longitude')?.value, description: document.getElementById('description')?.value||null, ambulance_id: ambSelect?.value||null, hospital_id: hospSelect?.value||null }; if (!d.location_lat||!d.location_lon){showMessage("Validation Error","Lat/Lon required.");return;} try { const r=await fetchWithAuth(`${API_URL}/incidents`,{method:'POST',body:JSON.stringify(d)}); if(!r.ok){const ed=await r.json();throw new Error(ed.error||`HTTP ${r.status}`);} hideIncidentModal(); showMessage('Success','Incident logged.'); /* Let WebSocket handle update */ } catch(err){console.error('Err create incident:',err); if(incidentFormError){incidentFormError.textContent=`Error: ${err.message}`; incidentFormError.classList.remove('hidden');}} }
         async function showVitals(incidentId) { console.log("showVitals ID:", incidentId); if (!vitalsContent||!vitalsModal)return; vitalsModal.dataset.incidentId = incidentId; vitalsContent.innerHTML = '<p class="text-gray-500 dark:text-gray-400">Loading...</p>'; vitalsModal.classList.add('active'); try { const r=await fetchWithAuth(`${API_URL}/incidents/${incidentId}/vitals`); if(!r.ok)throw new Error(`Fetch failed: ${r.status}`); const v=await r.json(); if(v.length===0){vitalsContent.innerHTML='<p class="text-gray-500 dark:text-gray-400">No vitals.</p>'; return;} vitalsContent.innerHTML=''; v.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)); v.forEach(v => { vitalsContent.innerHTML+=`<div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600"><div class="text-sm text-gray-500 dark:text-gray-400 mb-2">${new Date(v.timestamp).toLocaleString()}</div><div class="grid grid-cols-2 gap-2 text-sm text-gray-800 dark:text-gray-200"><div class="font-medium">Heart Rate:</div><div>${v.heart_rate||'N/A'} bpm</div><div class="font-medium">Blood Pressure:</div><div>${v.blood_pressure_systolic||'N/A'}/${v.blood_pressure_diastolic||'N/A'}</div><div class="font-medium">Oxygen Sat:</div><div>${v.oxygen_saturation||'N/A'} %</div></div></div>`; }); } catch (err){console.error("Err showVitals:",err); vitalsContent.innerHTML=`<p class="text-red-500 dark:text-red-400">Load failed: ${err.message}</p>`;} }
         function hideVitalsModal() { console.log("hideVitalsModal"); if(vitalsModal) { vitalsModal.classList.remove('active'); delete vitalsModal.dataset.incidentId; } }
-        function openAmbulanceModal(ambulanceId = null) { console.log("openAmbModal ID:", ambulanceId); if (!ambulanceForm||!ambulanceFormError||!ambulanceModal||!ambulanceIdInput||!ambulancePlate||!ambulanceStatus||!ambulanceLat||!ambulanceLon||!deleteAmbulanceBtn||!saveAmbulanceBtn||!ambulanceModalTitle) return; ambulanceForm.reset(); ambulanceFormError.classList.add('hidden'); if (ambulanceId) { const a=allAmbulances.find(a=>a.id===ambulanceId); if(!a){showMessage('Error',`Amb ID ${ambulanceId} not found`); return;} ambulanceModalTitle.textContent='Manage Amb'; ambulanceIdInput.value=a.id; ambulancePlate.value=a.license_plate; ambulanceStatus.value=a.status; ambulanceLat.value=a.latitude||''; ambulanceLon.value=a.longitude||''; deleteAmbulanceBtn.style.display = currentUser?.role === 'supervisor' ? 'inline-block' : 'none'; saveAmbulanceBtn.textContent='Update'; } else { ambulanceModalTitle.textContent='Add Amb'; ambulanceIdInput.value=''; deleteAmbulanceBtn.style.display='none'; saveAmbulanceBtn.textContent='Save'; } ambulanceModal.classList.add('active'); }
+        function openAmbulanceModal(ambulanceId = null) { console.log("openAmbModal ID:", ambulanceId); if (!ambulanceForm||!ambulanceFormError||!ambulanceModal||!ambulanceIdInput||!ambulancePlate||!ambulanceStatus||!ambulanceLat||!ambulanceLon||!deleteAmbulanceBtn||!saveAmbulanceBtn||!ambulanceModalTitle||!ambulanceSpecialtyEquipment) return; ambulanceForm.reset(); ambulanceFormError.classList.add('hidden'); if (ambulanceId) { const a=allAmbulances.find(a=>a.id===ambulanceId); if(!a){showMessage('Error',`Amb ID ${ambulanceId} not found`); return;} ambulanceModalTitle.textContent='Manage Amb'; ambulanceIdInput.value=a.id; ambulancePlate.value=a.license_plate; ambulanceStatus.value=a.status; ambulanceLat.value=a.latitude||''; ambulanceLon.value=a.longitude||''; ambulanceSpecialtyEquipment.value=a.specialty_equipment||''; deleteAmbulanceBtn.style.display = currentUser?.role === 'supervisor' ? 'inline-block' : 'none'; saveAmbulanceBtn.textContent='Update'; } else { ambulanceModalTitle.textContent='Add Amb'; ambulanceIdInput.value=''; deleteAmbulanceBtn.style.display='none'; saveAmbulanceBtn.textContent='Save'; } ambulanceModal.classList.add('active'); }
         function hideAmbulanceModal() { console.log("hideAmbModal"); if (ambulanceModal) ambulanceModal.classList.remove('active'); }
-        async function handleAmbulanceSubmit(e) { console.log("handleAmbSubmit"); e.preventDefault(); if(ambulanceFormError) ambulanceFormError.classList.add('hidden'); const id=ambulanceIdInput?.value; const isUpd=!!id; const d={ license_plate: ambulancePlate?.value, status: ambulanceStatus?.value, latitude: ambulanceLat?.value||null, longitude: ambulanceLon?.value||null }; if (!d.license_plate){showMessage("Validation Error","Plate required.");return;} const url=isUpd?`${API_URL}/ambulances/${id}`:`${API_URL}/ambulances`; const meth=isUpd?'PUT':'POST'; try { const r=await fetchWithAuth(url,{method:meth,body:JSON.stringify(d)}); if(!r.ok){const ed=await r.json();throw new Error(ed.error||`HTTP ${r.status}`);} hideAmbulanceModal(); showMessage('Success',`Amb ${isUpd?'updated':'added'}.`); /* Let WebSocket handle update */ } catch(err){console.error('Err save amb:',err); if(ambulanceFormError){ambulanceFormError.textContent=`Error: ${err.message}`; ambulanceFormError.classList.remove('hidden');}} }
+        async function handleAmbulanceSubmit(e) { console.log("handleAmbSubmit"); e.preventDefault(); if(ambulanceFormError) ambulanceFormError.classList.add('hidden'); const id=ambulanceIdInput?.value; const isUpd=!!id; const d={ license_plate: ambulancePlate?.value, status: ambulanceStatus?.value, latitude: ambulanceLat?.value||null, longitude: ambulanceLon?.value||null, specialty_equipment: ambulanceSpecialtyEquipment?.value||null }; if (!d.license_plate){showMessage("Validation Error","Plate required.");return;} const url=isUpd?`${API_URL}/ambulances/${id}`:`${API_URL}/ambulances`; const meth=isUpd?'PUT':'POST'; try { const r=await fetchWithAuth(url,{method:meth,body:JSON.stringify(d)}); if(!r.ok){const ed=await r.json();throw new Error(ed.error||`HTTP ${r.status}`);} hideAmbulanceModal(); showMessage('Success',`Amb ${isUpd?'updated':'added'}.`); /* Let WebSocket handle update */ } catch(err){console.error('Err save amb:',err); if(ambulanceFormError){ambulanceFormError.textContent=`Error: ${err.message}`; ambulanceFormError.classList.remove('hidden');}} }
         async function handleAmbulanceDelete() { showConfirm('Delete Ambulance?', `Are you sure you want to delete ambulance ID ${ambulanceIdInput?.value}?`, async () => { console.log("handleAmbDelete"); const id=ambulanceIdInput?.value; if (!id) return; try { const r=await fetchWithAuth(`${API_URL}/ambulances/${id}`,{method:'DELETE'}); if(!r.ok&&r.status!==204){let eM=`HTTP ${r.status}`; try{const ed=await r.json();eM=ed.error||eM;}catch(e){} throw new Error(eM);} hideAmbulanceModal(); showMessage('Success',`Amb ID ${id} deleted.`); /* Let WebSocket handle update */ } catch(err){console.error('Err delete amb:',err); if(ambulanceFormError){ambulanceFormError.textContent=`Error: ${err.message}`; ambulanceFormError.classList.remove('hidden');}} }); }
         function openHospitalModal(hospitalId = null) { console.log("openHospModal ID:", hospitalId); if (!hospitalForm||!hospitalFormError||!hospitalModal||!hospitalIdInput||!hospitalName||!hospitalAddress||!hospitalLat||!hospitalLon||!hospitalErCapacity||!hospitalErOccupancy||!deleteHospitalBtn||!saveHospitalBtn||!hospitalModalTitle) return; hospitalForm.reset(); hospitalFormError.classList.add('hidden'); if (hospitalId) { const h=allHospitals.find(h=>h.id===hospitalId); if(!h){showMessage('Error',`Hosp ID ${hospitalId} not found`); return;} hospitalModalTitle.textContent='Manage Hosp'; hospitalIdInput.value=h.id; hospitalName.value=h.name; hospitalAddress.value=h.address||''; hospitalLat.value=h.latitude||''; hospitalLon.value=h.longitude||''; hospitalErCapacity.value=h.er_capacity||''; hospitalErOccupancy.value=h.er_current_occupancy||''; deleteHospitalBtn.style.display = currentUser?.role === 'supervisor' ? 'inline-block' : 'none'; saveHospitalBtn.textContent='Update'; } else { hospitalModalTitle.textContent='Add Hosp'; hospitalIdInput.value=''; deleteHospitalBtn.style.display='none'; saveHospitalBtn.textContent='Save'; } hospitalModal.classList.add('active'); }
         function hideHospitalModal() { console.log("hideHospModal"); if (hospitalModal) hospitalModal.classList.remove('active'); }
         async function handleHospitalSubmit(e) { console.log("handleHospSubmit"); e.preventDefault(); if (hospitalFormError) hospitalFormError.classList.add('hidden'); const id=hospitalIdInput?.value; const isUpd=!!id; const d={ name: hospitalName?.value, address: hospitalAddress?.value||null, latitude: hospitalLat?.value, longitude: hospitalLon?.value, er_capacity: hospitalErCapacity?.value||null, er_current_occupancy: hospitalErOccupancy?.value||null }; if (!d.name||!d.latitude||!d.longitude){showMessage("Validation Error","Name/Lat/Lon required.");return;} const url=isUpd?`${API_URL}/hospitals/${id}`:`${API_URL}/hospitals`; const meth=isUpd?'PUT':'POST'; try { const r=await fetchWithAuth(url,{method:meth,body:JSON.stringify(d)}); if(!r.ok){const ed=await r.json();throw new Error(ed.error||`HTTP ${r.status}`);} hideHospitalModal(); showMessage('Success',`Hosp ${isUpd?'updated':'added'}.`); /* Let WebSocket handle update */ } catch(err){console.error('Err save hosp:',err); if(hospitalFormError){hospitalFormError.textContent=`Error: ${err.message}`; hospitalFormError.classList.remove('hidden');}} }
         async function handleHospitalDelete() { showConfirm('Delete Hospital?', `Are you sure you want to delete hospital ID ${hospitalIdInput?.value}?`, async () => { console.log("handleHospDelete"); const id=hospitalIdInput?.value; if (!id) return; try { const r=await fetchWithAuth(`${API_URL}/hospitals/${id}`,{method:'DELETE'}); if(!r.ok&&r.status!==204){let eM=`HTTP ${r.status}`; try{const ed=await r.json();eM=ed.error||eM;}catch(e){} throw new Error(eM);} hideHospitalModal(); showMessage('Success',`Hosp ID ${id} deleted.`); /* Let WebSocket handle update */ } catch(err){console.error('Err delete hosp:',err); if(hospitalFormError){hospitalFormError.textContent=`Error: ${err.message}`; hospitalFormError.classList.remove('hidden');}} }); }
-        async function openManageIncidentModal(incidentId = null) { console.log("openManageIncModal ID:", incidentId); if (!manageIncidentForm||!manageIncidentFormError||!manageIncidentModal||!manageIncidentIdInput||!manageIncidentPatientName||!manageIncidentDescription||!manageIncidentAmbulanceSelect||!manageIncidentHospitalSelect||!manageIncidentStatus||!cancelManageIncidentBtn||!saveManageIncidentBtn||!manageIncidentModalTitle||!deleteIncidentBtn) {console.error("Manage Incident modal elements missing!"); return;} manageIncidentForm.reset(); manageIncidentFormError.classList.add('hidden'); const inc=allIncidents.find(i=>i.id===incidentId); if (!inc){showMessage('Error',`Incident ID ${incidentId} not found.`); return;} manageIncidentPatientName.textContent = `Patient ID: ${inc.patient_id}` + (inc.patient?.full_name ? ` (${inc.patient.full_name})` : ''); manageIncidentModalTitle.textContent=`Manage Incident #${inc.id}`; manageIncidentIdInput.value=inc.id; manageIncidentDescription.value=inc.description||''; manageIncidentStatus.value=inc.status||'active'; populateDropdowns(allAmbulances, allHospitals, manageIncidentAmbulanceSelect, manageIncidentHospitalSelect); manageIncidentAmbulanceSelect.value=inc.ambulance_id||''; manageIncidentHospitalSelect.value=inc.destination_hospital_id||''; deleteIncidentBtn.style.display = currentUser?.role === 'supervisor' ? 'inline-block' : 'none'; manageIncidentModal.classList.add('active'); }
-        function hideManageIncidentModal() { console.log("hideManageIncModal"); if (manageIncidentModal) manageIncidentModal.classList.remove('active'); }
+        async function openManageIncidentModal(incidentId = null) {
+            console.log("openManageIncModal ID:", incidentId);
+            if (!manageIncidentForm||!manageIncidentFormError||!manageIncidentModal||!manageIncidentIdInput||!manageIncidentPatientName||!manageIncidentDescription||!manageIncidentAmbulanceSelect||!manageIncidentHospitalSelect||!manageIncidentStatus||!cancelManageIncidentBtn||!saveManageIncidentBtn||!manageIncidentModalTitle||!deleteIncidentBtn||!incidentChatMessages||!incidentChatForm||!incidentChatInput) {console.error("Manage Incident modal elements missing!"); return;}
+            manageIncidentForm.reset();
+            manageIncidentFormError.classList.add('hidden');
+            const inc=allIncidents.find(i=>i.id===incidentId);
+            if (!inc){showMessage('Error',`Incident ID ${incidentId} not found.`); return;}
+            manageIncidentPatientName.textContent = `Patient ID: ${inc.patient_id}` + (inc.patient?.full_name ? ` (${inc.patient.full_name})` : '');
+            manageIncidentModalTitle.textContent=`Manage Incident #${inc.id}`;
+            manageIncidentIdInput.value=inc.id;
+            manageIncidentDescription.value=inc.description||'';
+            manageIncidentStatus.value=inc.status||'active';
+            populateDropdowns(allAmbulances, allHospitals, manageIncidentAmbulanceSelect, manageIncidentHospitalSelect);
+            manageIncidentAmbulanceSelect.value=inc.ambulance_id||'';
+            manageIncidentHospitalSelect.value=inc.destination_hospital_id||'';
+            deleteIncidentBtn.style.display = currentUser?.role === 'supervisor' ? 'inline-block' : 'none';
+            manageIncidentModal.classList.add('active');
+
+            // Chat specific logic
+            incidentChatMessages.innerHTML = '<p class="text-gray-500 dark:text-gray-400">Loading chat...</p>';
+            socket.emit('join_incident_room', { incident_id: incidentId });
+            try {
+                const r = await fetchWithAuth(`${API_URL}/incidents/${incidentId}/messages`);
+                if (!r.ok) throw new Error(`Failed to fetch chat messages: ${r.status}`);
+                const messages = await r.json();
+                renderChatMessages(messages);
+            } catch (err) {
+                console.error("Error fetching chat messages:", err);
+                incidentChatMessages.innerHTML = '<p class="text-red-500 dark:text-red-400">Failed to load chat.</p>';
+            }
+        }
+        function hideManageIncidentModal() {
+            console.log("hideManageIncModal");
+            if (manageIncidentModal) {
+                manageIncidentModal.classList.remove('active');
+                socket.emit('leave_incident_room', { incident_id: manageIncidentIdInput.value });
+            }
+        }
         async function handleManageIncidentSubmit(e) { console.log("handleManageIncSubmit"); e.preventDefault(); if(manageIncidentFormError) manageIncidentFormError.classList.add('hidden'); const id=manageIncidentIdInput?.value; if (!id){showMessage("Error","Incident ID missing.");return;} const d={ description: manageIncidentDescription?.value||null, ambulance_id: manageIncidentAmbulanceSelect?.value||null, hospital_id: manageIncidentHospitalSelect?.value||null, status: manageIncidentStatus?.value }; const url=`${API_URL}/incidents/${id}`; const meth='PUT'; try { const r=await fetchWithAuth(url,{method:meth,body:JSON.stringify(d)}); if(!r.ok){const ed=await r.json();throw new Error(ed.error||`HTTP ${r.status}`);} hideManageIncidentModal(); showMessage('Success',`Incident #${id} updated.`); /* Let WebSocket handle update */ } catch(err){console.error('Err update incident:',err); if(manageIncidentFormError){manageIncidentFormError.textContent=`Error: ${err.message}`; manageIncidentFormError.classList.remove('hidden');}} }
         async function handleIncidentDelete() { showConfirm('Delete Incident?', `Are you sure you want to delete incident ID ${manageIncidentIdInput?.value}?`, async () => { console.log("handleIncDelete"); const id=manageIncidentIdInput?.value; if (!id) return; try { const r=await fetchWithAuth(`${API_URL}/incidents/${id}`,{method:'DELETE'}); if(!r.ok&&r.status!==204){let eM=`HTTP ${r.status}`; try{const ed=await r.json();eM=ed.error||eM;}catch(e){} throw new Error(eM);} hideManageIncidentModal(); showMessage('Success',`Incident ID ${id} deleted.`); /* Let WebSocket handle update */ } catch(err){console.error('Err delete incident:',err); if(manageIncidentFormError){manageIncidentFormError.textContent=`Error: ${err.message}`; manageIncidentFormError.classList.remove('hidden');}else{showMessage('Error',`Could not delete: ${err.message}`);}} }); }
         
@@ -320,13 +603,14 @@
             console.log("Suggest unit clicked");
             const lat = document.getElementById('latitude')?.value;
             const lon = document.getElementById('longitude')?.value;
+            const requiredEquipment = incidentRequiredEquipment?.value || null; // Get required equipment
             if (!lat || !lon) { showMessage("Error", "Please enter Latitude and Longitude to get a suggestion."); return; }
             try {
-                const r = await fetchWithAuth(`${API_URL}/dispatch/suggest`, { method: 'POST', body: JSON.stringify({ latitude: lat, longitude: lon }) });
+                const r = await fetchWithAuth(`${API_URL}/dispatch/suggest`, { method: 'POST', body: JSON.stringify({ latitude: lat, longitude: lon, required_equipment: requiredEquipment }) });
                 const res = await r.json();
                 if (!r.ok) { throw new Error(res.error || `HTTP error! status: ${r.status}`); }
                 if (res.suggestion) {
-                    showMessage('Suggestion', `Nearest unit: ${res.suggestion.license_plate} (ID: ${res.suggestion.id}) at ~${res.suggestion.estimated_distance_km} km away.`);
+                    showMessage('Suggestion', `Nearest unit: ${res.suggestion.license_plate} (ID: ${res.suggestion.id}) at ~${res.suggestion.estimated_distance_km} km away. Equipment: ${res.suggestion.specialty_equipment || 'None'}`);
                     if(ambSelect) ambSelect.value = res.suggestion.id; // Automatically select it
                 } else {
                     showMessage('Suggestion', res.message || "No available units found.");
@@ -358,6 +642,54 @@
                  console.error('Err adding vitals:',err);
                  if(vitalsFormError) { vitalsFormError.textContent = `Error: ${err.message}`; vitalsFormError.classList.remove('hidden'); }
              }
+        }
+
+        function renderChatMessages(messages) {
+            if (!incidentChatMessages) return;
+            incidentChatMessages.innerHTML = '';
+            if (messages.length === 0) {
+                incidentChatMessages.innerHTML = '<p class="text-gray-500 dark:text-gray-400">No messages yet.</p>';
+                return;
+            }
+            messages.forEach(msg => {
+                const isCurrentUser = currentUser && msg.user_id === currentUser.id;
+                const messageClass = isCurrentUser ? 'bg-indigo-500 text-white self-end' : 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 self-start';
+                const alignmentClass = isCurrentUser ? 'text-right' : 'text-left';
+                const senderName = isCurrentUser ? 'You' : msg.user_full_name;
+                const timestamp = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                incidentChatMessages.innerHTML += `
+                    <div class="flex ${isCurrentUser ? 'justify-end' : 'justify-start'}">
+                        <div class="rounded-lg px-3 py-2 max-w-[70%] ${messageClass}">
+                            <p class="font-semibold text-sm ${alignmentClass}">${senderName}</p>
+                            <p class="text-sm">${msg.content}</p>
+                            <p class="text-xs opacity-75 ${alignmentClass}">${timestamp}</p>
+                        </div>
+                    </div>
+                `;
+            });
+            incidentChatMessages.scrollTop = incidentChatMessages.scrollHeight; // Scroll to bottom
+        }
+
+        async function handleIncidentChatSubmit(e) {
+            e.preventDefault();
+            const incidentId = manageIncidentIdInput?.value;
+            const messageContent = incidentChatInput?.value.trim();
+
+            if (!incidentId || !messageContent) return;
+
+            try {
+                const r = await fetchWithAuth(`${API_URL}/incidents/${incidentId}/messages`, {
+                    method: 'POST',
+                    body: JSON.stringify({ content: messageContent })
+                });
+                if (!r.ok) { const ed = await r.json(); throw new Error(ed.error || `HTTP ${r.status}`); }
+                incidentChatInput.value = ''; // Clear input
+                // Message will be rendered via WebSocket update
+            } catch (err) {
+                console.error("Error sending chat message:", err);
+                showMessage('Chat Error', `Failed to send message: ${err.message}`);
+            }
         }
 
 
@@ -420,6 +752,9 @@
                 if(seedDataBtn) seedDataBtn.addEventListener('click', handleSeedData); // Seed data button
                 if(confirmCancelBtn) confirmCancelBtn.addEventListener('click', hideConfirm);
                 if(confirmOkBtn) confirmOkBtn.addEventListener('click', handleConfirmOk);
+                if(incidentChatForm) incidentChatForm.addEventListener('submit', handleIncidentChatSubmit);
+
+
 
                 console.log("All potential listeners attached (check warnings).");
                 checkLoginStatus(); // Initial check

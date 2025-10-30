@@ -118,6 +118,7 @@ class Ambulance(db.Model):
     status = db.Column(db.String(50), nullable=False, default='available')
     current_lat = db.Column(db.DECIMAL(10, 8), nullable=True)
     current_lon = db.Column(db.DECIMAL(11, 8), nullable=True)
+    specialty_equipment = db.Column(db.Text, nullable=True) # NEW: Specialty equipment
     equipment = db.relationship('Equipment', backref='ambulance', lazy='dynamic', cascade="all, delete-orphan")
     # staff_assigned available via backref
 
@@ -127,7 +128,7 @@ class Ambulance(db.Model):
         return status
 
     def to_dict(self):
-        return { 'id': self.ambulance_id, 'license_plate': self.license_plate, 'status': self.status, 'latitude': str(self.current_lat) if self.current_lat is not None else None, 'longitude': str(self.current_lon) if self.current_lon is not None else None }
+        return { 'id': self.ambulance_id, 'license_plate': self.license_plate, 'status': self.status, 'latitude': str(self.current_lat) if self.current_lat is not None else None, 'longitude': str(self.current_lon) if self.current_lon is not None else None, 'specialty_equipment': self.specialty_equipment }
 
 # --- Event listener for Ambulance ---
 @event.listens_for(Ambulance, 'after_update')
@@ -206,6 +207,7 @@ class Incident(db.Model):
     incident_time = db.Column(db.TIMESTAMP, server_default=func.now())
     status = db.Column(db.String(50), nullable=False, default='active')
     vitals_logs = db.relationship('PatientVitalsLog', backref='incident', lazy='dynamic', cascade="all, delete-orphan")
+    messages = db.relationship('Message', backref='incident', lazy='dynamic', cascade="all, delete-orphan") # NEW: Chat messages
     dispatcher = db.relationship('User', lazy='joined')
     ambulance = db.relationship('Ambulance', lazy='joined')
     destination_hospital = db.relationship('Hospital', lazy='joined')
@@ -280,6 +282,26 @@ class PatientVitalsLog(db.Model):
             'heart_rate': self.heart_rate, 'blood_pressure_systolic': self.blood_pressure_systolic,
             'blood_pressure_diastolic': self.blood_pressure_diastolic,
             'oxygen_saturation': str(self.oxygen_saturation) if self.oxygen_saturation is not None else None
+        }
+
+class Message(db.Model):
+    __tablename__ = 'messages'
+    message_id = db.Column(db.Integer, primary_key=True)
+    incident_id = db.Column(db.Integer, db.ForeignKey('incidents.incident_id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.TIMESTAMP, server_default=func.now())
+
+    user = db.relationship('User', lazy='joined') # Eager load user for message display
+
+    def to_dict(self):
+        return {
+            'id': self.message_id,
+            'incident_id': self.incident_id,
+            'user_id': self.user_id,
+            'user_full_name': self.user.full_name if self.user else 'Unknown User',
+            'content': self.content,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None
         }
 
 
@@ -400,7 +422,7 @@ def post_ambulance_route():
     if not data or not data.get('license_plate'): return jsonify(error="Missing plate"), 400
     if Ambulance.query.filter_by(license_plate=data['license_plate']).first(): return jsonify(error="Plate exists"), 409
     try:
-        amb = Ambulance(license_plate=data['license_plate'], status=data.get('status', 'available'), current_lat=data.get('latitude'), current_lon=data.get('longitude'))
+        amb = Ambulance(license_plate=data['license_plate'], status=data.get('status', 'available'), current_lat=data.get('latitude'), current_lon=data.get('longitude'), specialty_equipment=data.get('specialty_equipment'))
         db.session.add(amb); db.session.commit()
         socketio.emit('ambulance_update', amb.to_dict(), room='dashboard_updates') # Emit creation
         return jsonify(amb.to_dict()), 201
@@ -428,7 +450,7 @@ def put_ambulance_route(ambulance_id):
         else:
             np = data.get('license_plate', amb.license_plate)
             if np != amb.license_plate and Ambulance.query.filter_by(license_plate=np).first(): return jsonify(error="Plate exists"), 409
-            amb.license_plate = np; amb.status = data.get('status', amb.status); amb.current_lat = data.get('latitude', amb.current_lat); amb.current_lon = data.get('longitude', amb.current_lon)
+            amb.license_plate = np; amb.status = data.get('status', amb.status); amb.current_lat = data.get('latitude', amb.current_lat); amb.current_lon = data.get('longitude', amb.current_lon); amb.specialty_equipment = data.get('specialty_equipment', amb.specialty_equipment)
         db.session.commit() # Triggers 'after_update'
         return jsonify(amb.to_dict())
     except ValueError as ve: db.session.rollback(); return jsonify(error=str(ve)), 400
@@ -676,6 +698,64 @@ def handle_incident_vitals(incident_id):
     except Exception as e:app.logger.error(f"Err get vitals I{incident_id}: {e}");return jsonify(error="Internal error"),500
 
 
+## -- Incident Message API Routes -- ##
+@app.route('/api/incidents/<int:incident_id>/messages', methods=['GET', 'POST'])
+@jwt_required()
+def handle_incident_messages(incident_id):
+    incident = Incident.query.get_or_404(incident_id)
+    role = get_jwt().get('role')
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+
+    # Authorization check: Only users involved in the incident or supervisors/dispatchers can access
+    allowed_access = False
+    if role in [ROLES['SUPERVISOR'], ROLES['DISPATCHER']]:
+        allowed_access = True
+    elif role == ROLES['PARAMEDIC']:
+        staff_profile = Staff.query.filter_by(user_id=user_id).first()
+        if staff_profile and staff_profile.assigned_ambulance_id == incident.ambulance_id:
+            allowed_access = True
+    elif role == ROLES['HOSPITAL_STAFF']:
+        if user and user.hospital_id == incident.destination_hospital_id:
+            allowed_access = True
+    
+    if not allowed_access:
+        return jsonify(error="Unauthorized access to incident messages"), 403
+
+    if request.method == 'POST':
+        data = request.get_json()
+        if not data or not data.get('content'):
+            return jsonify(error="Message content is required"), 400
+        
+        try:
+            new_message = Message(
+                incident_id=incident_id,
+                user_id=user_id,
+                content=data['content']
+            )
+            db.session.add(new_message)
+            db.session.commit()
+
+            # Emit message to incident-specific room and dashboard_updates
+            message_data = new_message.to_dict()
+            socketio.emit('incident_message', message_data, room=f'incident_{incident_id}')
+            socketio.emit('incident_message', message_data, room='dashboard_updates') # For general overview
+
+            return jsonify(message_data), 201
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error posting message for incident {incident_id}: {e}", exc_info=True)
+            return jsonify(error="Internal server error posting message"), 500
+
+    elif request.method == 'GET':
+        try:
+            messages = Message.query.filter_by(incident_id=incident_id).order_by(Message.timestamp.asc()).all()
+            return jsonify([m.to_dict() for m in messages]), 200
+        except Exception as e:
+            app.logger.error(f"Error fetching messages for incident {incident_id}: {e}", exc_info=True)
+            return jsonify(error="Internal server error fetching messages"), 500
+
+
 ## -- Staff API Routes -- ##
 @app.route('/api/staff', methods=['GET', 'POST'])
 @roles_required(ROLES['SUPERVISOR'])
@@ -859,15 +939,38 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 def suggest_ambulance():
     data = request.get_json()
     incident_lat = data.get('latitude'); incident_lon = data.get('longitude')
+    required_equipment = data.get('required_equipment') # NEW: Required equipment for the incident
     if incident_lat is None or incident_lon is None: return jsonify(error="Missing location"), 400
     try:
-        available_ambulances = Ambulance.query.filter_by(status='available').all()
-        if not available_ambulances: return jsonify(suggestion=None, message="No available ambulances."), 200
+        # Start with all available ambulances
+        query = Ambulance.query.filter_by(status='available')
+
+        # Filter by required equipment if specified
+        if required_equipment:
+            # Assuming specialty_equipment is stored as a comma-separated string
+            # This is a basic check; a more robust solution might involve a dedicated table
+            query = query.filter(Ambulance.specialty_equipment.ilike(f'%{{required_equipment}}%'))
+
+        available_ambulances = query.all()
+
+        if not available_ambulances: return jsonify(suggestion=None, message="No available ambulances matching criteria."), 200
+        
         nearest_ambulance = None; min_distance = float('inf')
         for amb in available_ambulances:
             if amb.current_lat is not None and amb.current_lon is not None:
                 distance = calculate_distance(incident_lat, incident_lon, amb.current_lat, amb.current_lon)
+                
+                # --- Placeholder for advanced routing logic (e.g., traffic data) ---
+                # if external_routing_api_available:
+                #     traffic_adjusted_distance = get_traffic_adjusted_distance(incident_lat, incident_lon, amb.current_lat, amb.current_lon)
+                #     distance = traffic_adjusted_distance
+
                 if distance < min_distance: min_distance = distance; nearest_ambulance = amb
+        
+        # --- Placeholder for considering hospital load/specialties ---
+        # If a destination hospital is suggested/required, check its current ER occupancy and specialties
+        # For example, filter out hospitals that are at full capacity or don't have required specialties
+
         if nearest_ambulance:
             avg_speed_kmh = 40; estimated_time_hours = min_distance / avg_speed_kmh if avg_speed_kmh > 0 else 0
             estimated_eta = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=estimated_time_hours)
@@ -875,7 +978,7 @@ def suggest_ambulance():
             suggestion['estimated_distance_km'] = round(min_distance, 2)
             suggestion['estimated_eta'] = estimated_eta.isoformat()
             return jsonify(suggestion=suggestion), 200
-        else: return jsonify(suggestion=None, message="No available ambulances with location found."), 200
+        else: return jsonify(suggestion=None, message="No available ambulances with location found matching criteria."), 200
     except Exception as e: app.logger.error(f"Error suggesting ambulance: {e}"); return jsonify(error="Internal error"), 500
 
 ## -- ** NEW: Database Seeding Route ** -- ##
