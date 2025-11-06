@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request, session
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import joinedload, validates # For eager loading and validation
-from sqlalchemy import func, event # For database functions like now() and event listeners
+from sqlalchemy.orm import joinedload, validates
+from sqlalchemy import func, event
 from config import Config
 import datetime
 from flask_cors import CORS
@@ -10,23 +10,20 @@ from flask_jwt_extended import (
     create_access_token, jwt_required, JWTManager,
     get_jwt_identity, get_jwt, verify_jwt_in_request
 )
-from functools import wraps # For custom decorators
-import re # For basic validation
-import math # For distance calculation
-import logging # For logging
-
-# --- Import SocketIO ---
+from functools import wraps
+import re
+import math
+import logging
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
-# --- Basic Logging Setup ---
+
 app = Flask(__name__)
 app.logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
 handler.setFormatter(formatter)
 if not app.logger.handlers:
-     app.logger.addHandler(handler)
-
+    app.logger.addHandler(handler)
 
 app.config.from_object(Config)
 app.config["JWT_SECRET_KEY"] = Config.SECRET_KEY or "change-this-super-secret-key-in-prod-ASAP!"
@@ -38,15 +35,12 @@ bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-
-# --- Role Definition & Validation Constants ---
-ROLES = { 'SUPERVISOR': 'supervisor', 'DISPATCHER': 'dispatcher', 'PARAMEDIC': 'paramedic', 'HOSPITAL_STAFF': 'hospital_staff' }
+ROLES = {'SUPERVISOR': 'supervisor', 'DISPATCHER': 'dispatcher', 'PARAMEDIC': 'paramedic', 'HOSPITAL_STAFF': 'hospital_staff'}
 VALID_ROLES = set(ROLES.values())
 VALID_AMBULANCE_STATUSES = {'available', 'en_route_to_scene', 'at_scene', 'en_route_to_hospital', 'unavailable', 'maintenance_required'}
 VALID_INCIDENT_STATUSES = {'active', 'en_route_to_scene', 'at_scene', 'en_route_to_hospital', 'closed', 'cancelled'}
 VALID_EQUIPMENT_STATUSES = {'operational', 'maintenance_required'}
 
-# --- Custom Decorator for Role Checks ---
 def roles_required(*required_roles):
     def decorator(fn):
         @wraps(fn)
@@ -62,9 +56,6 @@ def roles_required(*required_roles):
         return wrapper
     return decorator
 
-
-## -- Models (with Relationships & Basic Validation) -- ##
-
 class User(db.Model):
     __tablename__ = 'users'
     user_id = db.Column(db.Integer, primary_key=True)
@@ -72,10 +63,8 @@ class User(db.Model):
     password = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(50), nullable=False)
-    hospital_id = db.Column(db.Integer, db.ForeignKey('hospitals.hospital_id'), nullable=True) # Link to hospital for staff
+    hospital_id = db.Column(db.Integer, db.ForeignKey('hospitals.hospital_id'), nullable=True)
     staff_profile = db.relationship('Staff', back_populates='user', uselist=False, cascade="all, delete-orphan")
-    
-    # --- FIX: Use back_populates ---
     hospital = db.relationship('Hospital', back_populates='staff_users')
 
     @validates('role')
@@ -96,7 +85,7 @@ class User(db.Model):
         return bcrypt.check_password_hash(self.password, password)
 
     def to_dict(self):
-        return { 'id': self.user_id, 'username': self.username, 'full_name': self.full_name, 'role': self.role, 'hospital_id': self.hospital_id }
+        return {'id': self.user_id, 'username': self.username, 'full_name': self.full_name, 'role': self.role, 'hospital_id': self.hospital_id}
 
 class Staff(db.Model):
     __tablename__ = 'staff'
@@ -109,7 +98,7 @@ class Staff(db.Model):
 
     def to_dict(self):
         user_info = self.user.to_dict() if self.user else {}
-        return { 'staff_id': self.staff_id, 'user_id': self.user_id, 'full_name': user_info.get('full_name'), 'certification_level': self.certification_level, 'assigned_ambulance_id': self.assigned_ambulance_id }
+        return {'staff_id': self.staff_id, 'user_id': self.user_id, 'full_name': user_info.get('full_name'), 'certification_level': self.certification_level, 'assigned_ambulance_id': self.assigned_ambulance_id}
 
 class Ambulance(db.Model):
     __tablename__ = 'ambulances'
@@ -118,9 +107,8 @@ class Ambulance(db.Model):
     status = db.Column(db.String(50), nullable=False, default='available')
     current_lat = db.Column(db.DECIMAL(10, 8), nullable=True)
     current_lon = db.Column(db.DECIMAL(11, 8), nullable=True)
-    specialty_equipment = db.Column(db.Text, nullable=True) # NEW: Specialty equipment
+    specialty_equipment = db.Column(db.Text, nullable=True)
     equipment = db.relationship('Equipment', backref='ambulance', lazy='dynamic', cascade="all, delete-orphan")
-    # staff_assigned available via backref
 
     @validates('status')
     def validate_status(self, key, status):
@@ -128,12 +116,11 @@ class Ambulance(db.Model):
         return status
 
     def to_dict(self):
-        return { 'id': self.ambulance_id, 'license_plate': self.license_plate, 'status': self.status, 'latitude': str(self.current_lat) if self.current_lat is not None else None, 'longitude': str(self.current_lon) if self.current_lon is not None else None, 'specialty_equipment': self.specialty_equipment }
+        return {'id': self.ambulance_id, 'license_plate': self.license_plate, 'status': self.status, 'latitude': str(self.current_lat) if self.current_lat is not None else None, 'longitude': str(self.current_lon) if self.current_lon is not None else None, 'specialty_equipment': self.specialty_equipment}
 
-# --- Event listener for Ambulance ---
 @event.listens_for(Ambulance, 'after_update')
 def receive_after_update(mapper, connection, target):
-    app.logger.info(f"Ambulance {target.ambulance_id} updated. Emitting update.") # Use app.logger
+    app.logger.info(f"Ambulance {target.ambulance_id} updated. Emitting update.")
     socketio.emit('ambulance_update', target.to_dict(), room='dashboard_updates')
 
 class Equipment(db.Model):
@@ -149,7 +136,9 @@ class Equipment(db.Model):
         return status
 
     def to_dict(self):
-        return { 'equipment_id': self.equipment_id, 'ambulance_id': self.ambulance_id, 'equipment_name': self.equipment_name, 'status': self.status }
+        return {'equipment_id': self.equipment_id, 'ambulance_id': self.ambulance_id, 'equipment_name': self.equipment_name, 'status': self.status}
+
+
 
 class Hospital(db.Model):
     __tablename__ = 'hospitals'
@@ -161,8 +150,6 @@ class Hospital(db.Model):
     er_capacity = db.Column(db.Integer, nullable=True)
     er_current_occupancy = db.Column(db.Integer, nullable=True, default=0)
     specialties = db.relationship('HospitalSpecialties', backref='hospital', lazy='dynamic', cascade="all, delete-orphan")
-    
-    # --- FIX: Use back_populates ---
     staff_users = db.relationship('User', back_populates='hospital', lazy='dynamic')
 
     @validates('er_capacity', 'er_current_occupancy')
@@ -171,7 +158,7 @@ class Hospital(db.Model):
         return value
 
     def to_dict(self):
-        return { 'id': self.hospital_id, 'name': self.name, 'address': self.address, 'latitude': str(self.latitude) if self.latitude is not None else None, 'longitude': str(self.longitude) if self.longitude is not None else None, 'er_capacity': self.er_capacity, 'er_current_occupancy': self.er_current_occupancy }
+        return {'id': self.hospital_id, 'name': self.name, 'address': self.address, 'latitude': str(self.latitude) if self.latitude is not None else None, 'longitude': str(self.longitude) if self.longitude is not None else None, 'er_capacity': self.er_capacity, 'er_current_occupancy': self.er_current_occupancy}
 
 class HospitalSpecialties(db.Model):
     __tablename__ = 'hospital_specialties'
@@ -181,7 +168,11 @@ class HospitalSpecialties(db.Model):
     is_available = db.Column(db.Boolean, default=True)
 
     def to_dict(self):
-        return { 'specialty_id': self.specialty_id, 'hospital_id': self.hospital_id, 'specialty_name': self.specialty_name, 'is_available': self.is_available }
+        return {'specialty_id': self.specialty_id, 'hospital_id': self.hospital_id, 'specialty_name': self.specialty_name, 'is_available': self.is_available}
+
+
+
+
 
 class Patient(db.Model):
     __tablename__ = 'patients'
@@ -192,7 +183,7 @@ class Patient(db.Model):
     incidents = db.relationship('Incident', backref='patient', lazy='dynamic')
 
     def to_dict(self):
-        return { 'id': self.patient_id, 'full_name': self.full_name, 'dob': str(self.dob) if self.dob else None, 'blood_type': self.blood_type }
+        return {'id': self.patient_id, 'full_name': self.full_name, 'dob': str(self.dob) if self.dob else None, 'blood_type': self.blood_type}
 
 class Incident(db.Model):
     __tablename__ = 'incidents'
@@ -207,11 +198,10 @@ class Incident(db.Model):
     incident_time = db.Column(db.TIMESTAMP, server_default=func.now())
     status = db.Column(db.String(50), nullable=False, default='active')
     vitals_logs = db.relationship('PatientVitalsLog', backref='incident', lazy='dynamic', cascade="all, delete-orphan")
-    messages = db.relationship('Message', backref='incident', lazy='dynamic', cascade="all, delete-orphan") # NEW: Chat messages
+    messages = db.relationship('Message', backref='incident', lazy='dynamic', cascade="all, delete-orphan")
     dispatcher = db.relationship('User', lazy='joined')
     ambulance = db.relationship('Ambulance', lazy='joined')
     destination_hospital = db.relationship('Hospital', lazy='joined')
-    # patient relationship via backref
 
     @validates('status')
     def validate_status(self, key, status):
@@ -219,7 +209,7 @@ class Incident(db.Model):
         return status
 
     def to_dict(self, include_details=True):
-        data = { 'id': self.incident_id, 'patient_id': self.patient_id, 'dispatcher_id': self.dispatcher_id, 'ambulance_id': self.ambulance_id, 'destination_hospital_id': self.destination_hospital_id, 'latitude': str(self.location_lat) if self.location_lat is not None else None, 'longitude': str(self.location_lon) if self.location_lon is not None else None, 'description': self.location_description, 'incident_time': self.incident_time.isoformat() if self.incident_time else None, 'status': self.status }
+        data = {'id': self.incident_id, 'patient_id': self.patient_id, 'dispatcher_id': self.dispatcher_id, 'ambulance_id': self.ambulance_id, 'destination_hospital_id': self.destination_hospital_id, 'latitude': str(self.location_lat) if self.location_lat is not None else None, 'longitude': str(self.location_lon) if self.location_lon is not None else None, 'description': self.location_description, 'incident_time': self.incident_time.isoformat() if self.incident_time else None, 'status': self.status}
         if include_details:
             data['patient'] = self.patient.to_dict() if self.patient else None
             data['ambulance_plate'] = self.ambulance.license_plate if self.ambulance else None
@@ -227,21 +217,24 @@ class Incident(db.Model):
             data['dispatcher_name'] = self.dispatcher.full_name if self.dispatcher else None
         return data
 
-# --- Event listener for Incident status changes ---
+
+
+
+
+
+
 @event.listens_for(Incident.status, 'set')
 def receive_set_incident(target, value, oldvalue, initiator):
     if oldvalue != value and hasattr(target, 'incident_id') and target.incident_id is not None:
         if 'pending_emissions' not in session: session['pending_emissions'] = []
-        session['pending_emissions'] = session.get('pending_emissions', []) + [('incident_update', target.incident_id)] # Queue ID
+        session['pending_emissions'] = session.get('pending_emissions', []) + [('incident_update', target.incident_id)]
         app.logger.info(f"Incident {target.incident_id} status changed to {value}. Queued emission.")
 
-# --- Listener for after commit ---
 @event.listens_for(db.session, 'after_commit')
 def after_commit(session_instance):
     if 'pending_emissions' in session:
-        emissions = list(session.get('pending_emissions', [])) # Copy list
-        session.pop('pending_emissions', None) # Clear queue
-        
+        emissions = list(session.get('pending_emissions', []))
+        session.pop('pending_emissions', None)
         for event_name, item_id_or_data in emissions:
             data_to_emit = None
             try:
@@ -254,14 +247,21 @@ def after_commit(session_instance):
                         data_to_emit = incident_full.to_dict(include_details=True)
                     else:
                         app.logger.warning(f"Could not refetch incident {item_id_or_data} for emission post-commit.")
-                elif isinstance(item_id_or_data, dict): # Handle cases where data was passed directly
-                     data_to_emit = item_id_or_data
-                
+                elif isinstance(item_id_or_data, dict):
+                    data_to_emit = item_id_or_data
                 if data_to_emit:
                     app.logger.info(f"Emitting {event_name} for ID {data_to_emit.get('id')}")
                     socketio.emit(event_name, data_to_emit, room='dashboard_updates')
             except Exception as e:
                 app.logger.error(f"Error processing emission for {event_name} ID {item_id_or_data}: {e}")
+
+
+
+
+
+
+
+
         
 
 
@@ -291,8 +291,7 @@ class Message(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.TIMESTAMP, server_default=func.now())
-
-    user = db.relationship('User', lazy='joined') # Eager load user for message display
+    user = db.relationship('User', lazy='joined')
 
     def to_dict(self):
         return {
@@ -305,7 +304,18 @@ class Message(db.Model):
         }
 
 
-## -- Authentication API Routes -- ##
+
+
+
+
+
+
+        
+
+
+
+
+
 
 @app.route('/api/register', methods=['POST'])
 def register_user():
@@ -342,7 +352,6 @@ def login_user():
     if user and user.check_password(password):
         claims = {"role": user.role, "full_name": user.full_name}
         if user.hospital_id: claims["hospital_id"] = user.hospital_id
-        # --- FIX: Cast identity to string ---
         access_token = create_access_token(identity=str(user.user_id), additional_claims=claims)
         return jsonify(access_token=access_token, user=user.to_dict())
     else: return jsonify(error="Invalid credentials"), 401
@@ -350,11 +359,9 @@ def login_user():
 @jwt.user_lookup_loader
 def user_lookup_callback(_jwt_header, jwt_data):
     identity = jwt_data["sub"]
-    # --- FIX: Cast identity back to int ---
     return User.query.get(int(identity))
 
 
-## -- User Management (Supervisor Only) -- ##
 @app.route('/api/users', methods=['GET'])
 @roles_required(ROLES['SUPERVISOR'])
 def get_users():
@@ -388,20 +395,18 @@ def handle_user(user_id):
             if 'foreign key constraint' in str(e).lower(): return jsonify(error="Cannot delete user: Referenced elsewhere."), 409
             return jsonify(error="Failed"), 500
 
-## -- Test Route -- ##
 @app.route('/api/test', methods=['GET'])
 @jwt_required()
 def test_jwt_route():
-    current_user_id = int(get_jwt_identity()) # FIX: Cast to int
+    current_user_id = int(get_jwt_identity())
     app.logger.info(f"--- /api/test route OK for user {current_user_id} ---")
     return jsonify(message=f"JWT Test OK. User ID: {current_user_id}"), 200
 
 
-## -- Ambulance API Routes -- ##
 @app.route('/api/ambulances', methods=['GET'])
 @roles_required(ROLES['SUPERVISOR'], ROLES['DISPATCHER'], ROLES['PARAMEDIC'], ROLES['HOSPITAL_STAFF'])
 def get_ambulances_route():
-    current_user_id = int(get_jwt_identity()) # FIX: Cast to int
+    current_user_id = int(get_jwt_identity())
     user_role = get_jwt().get('role')
     app.logger.info(f"--- Entering GET /api/ambulances --- (User ID: {current_user_id}, Role: {user_role})")
     try:
@@ -424,7 +429,7 @@ def post_ambulance_route():
     try:
         amb = Ambulance(license_plate=data['license_plate'], status=data.get('status', 'available'), current_lat=data.get('latitude'), current_lon=data.get('longitude'), specialty_equipment=data.get('specialty_equipment'))
         db.session.add(amb); db.session.commit()
-        socketio.emit('ambulance_update', amb.to_dict(), room='dashboard_updates') # Emit creation
+        socketio.emit('ambulance_update', amb.to_dict(), room='dashboard_updates')
         return jsonify(amb.to_dict()), 201
     except ValueError as ve: db.session.rollback(); return jsonify(error=str(ve)), 400
     except Exception as e: db.session.rollback(); app.logger.error(f"Err add amb: {e}"); return jsonify(error="Internal error"), 500
@@ -439,7 +444,7 @@ def get_ambulance_route(ambulance_id):
 @roles_required(ROLES['SUPERVISOR'], ROLES['DISPATCHER'], ROLES['PARAMEDIC'])
 def put_ambulance_route(ambulance_id):
     amb = Ambulance.query.get_or_404(ambulance_id); user_role = get_jwt().get('role');
-    uid = int(get_jwt_identity()) # FIX: Cast to int
+    uid = int(get_jwt_identity())
     data = request.get_json()
     if not data: return jsonify(error="Missing body"), 400
     try:
@@ -451,7 +456,7 @@ def put_ambulance_route(ambulance_id):
             np = data.get('license_plate', amb.license_plate)
             if np != amb.license_plate and Ambulance.query.filter_by(license_plate=np).first(): return jsonify(error="Plate exists"), 409
             amb.license_plate = np; amb.status = data.get('status', amb.status); amb.current_lat = data.get('latitude', amb.current_lat); amb.current_lon = data.get('longitude', amb.current_lon); amb.specialty_equipment = data.get('specialty_equipment', amb.specialty_equipment)
-        db.session.commit() # Triggers 'after_update'
+        db.session.commit()
         return jsonify(amb.to_dict())
     except ValueError as ve: db.session.rollback(); return jsonify(error=str(ve)), 400
     except Exception as e: db.session.rollback(); app.logger.error(f"Err update amb {ambulance_id}: {e}"); return jsonify(error="Internal error"), 500
@@ -470,11 +475,10 @@ def delete_ambulance_route(ambulance_id):
         return jsonify(error="Internal error"), 500
 
 
-## -- Hospital API Routes -- ##
 @app.route('/api/hospitals', methods=['GET'])
 @roles_required(ROLES['SUPERVISOR'],ROLES['DISPATCHER'],ROLES['PARAMEDIC'],ROLES['HOSPITAL_STAFF'])
 def get_hospitals_route():
-    current_user_id = int(get_jwt_identity()) # FIX: Cast to int
+    current_user_id = int(get_jwt_identity())
     user_role = get_jwt().get('role')
     app.logger.info(f"--- Entering GET /api/hospitals --- (User ID: {current_user_id}, Role: {user_role})")
     try:
@@ -511,7 +515,7 @@ def get_hospital_route(hospital_id):
 @roles_required(ROLES['SUPERVISOR'], ROLES['HOSPITAL_STAFF'])
 def put_hospital_route(hospital_id):
     hosp = Hospital.query.options(joinedload(Hospital.specialties)).get_or_404(hospital_id); role=get_jwt().get('role');
-    uid=int(get_jwt_identity()) # FIX: Cast to int
+    uid=int(get_jwt_identity())
     user=User.query.get(uid)
     if role==ROLES['HOSPITAL_STAFF'] and user.hospital_id!=hospital_id: return jsonify(error="Staff can only update own hosp."),403
     data=request.get_json()
@@ -538,17 +542,16 @@ def delete_hospital_route(hospital_id):
         return jsonify(error="Internal error"),500
 
 
-## -- Incident API Routes -- ##
 @app.route('/api/incidents', methods=['GET'])
 @roles_required(ROLES['SUPERVISOR'],ROLES['DISPATCHER'],ROLES['PARAMEDIC'],ROLES['HOSPITAL_STAFF'])
 def get_incidents_route():
     role=get_jwt().get('role');
-    uid=int(get_jwt_identity()) # FIX 2: Cast to int
+    uid=int(get_jwt_identity())
     app.logger.info(f"--- Entering GET /api/incidents ---")
     app.logger.info(f"User ID: {uid}, Role: {role}")
     try:
         app.logger.info("Building incident query...")
-        q=Incident.query.options(joinedload(Incident.patient), joinedload(Incident.ambulance), joinedload(Incident.destination_hospital), joinedload(Incident.dispatcher)); # Eager load
+        q=Incident.query.options(joinedload(Incident.patient), joinedload(Incident.ambulance), joinedload(Incident.destination_hospital), joinedload(Incident.dispatcher));
         u=User.query.get(uid)
         app.logger.info(f"Filtering based on role {role}...")
         if role==ROLES['PARAMEDIC']:
@@ -560,9 +563,9 @@ def get_incidents_route():
                 app.logger.info("Paramedic has no assigned ambulance, returning empty list.")
                 return jsonify([]),200
         elif role==ROLES['HOSPITAL_STAFF']:
-            if u and u.hospital_id: # Check user exists
+            if u and u.hospital_id:
                 app.logger.info(f"Hospital Staff filter: hospital_id={u.hospital_id}")
-                q=q.filter(Incident.destination_hospital_id==u.hospital_id, Incident.status=='en_route_to_hospital') # Only incoming
+                q=q.filter(Incident.destination_hospital_id==u.hospital_id, Incident.status=='en_route_to_hospital')
             else:
                 app.logger.info("Hospital Staff has no assigned hospital, returning empty list.")
                 return jsonify([]),200
@@ -583,7 +586,7 @@ def get_incidents_route():
 @roles_required(ROLES['SUPERVISOR'], ROLES['DISPATCHER'])
 def post_incident_route():
     role=get_jwt().get('role');
-    uid=int(get_jwt_identity()) # FIX 2: Cast to int
+    uid=int(get_jwt_identity())
     data=request.get_json()
     if not data or data.get('location_lat') is None or data.get('location_lon') is None: return jsonify(error="Missing location"),400
     try:
@@ -592,7 +595,7 @@ def post_incident_route():
         if hid and not Hospital.query.get(hid): return jsonify(error=f"Hosp ID {hid} not found"),404
         pat=Patient(full_name=data.get('patient_name'),dob=data.get('patient_dob'),blood_type=data.get('patient_blood_type')); db.session.add(pat); db.session.flush()
         inc=Incident(patient_id=pat.patient_id, location_lat=data['location_lat'], location_lon=data['location_lon'], location_description=data.get('description'), dispatcher_id=uid, ambulance_id=aid, destination_hospital_id=hid, status=data.get('status','active')); db.session.add(inc); db.session.commit()
-        res=Incident.query.options(joinedload(Incident.patient), joinedload(Incident.ambulance), joinedload(Incident.destination_hospital), joinedload(Incident.dispatcher)).get(inc.incident_id); # Eager load for emit
+        res=Incident.query.options(joinedload(Incident.patient), joinedload(Incident.ambulance), joinedload(Incident.destination_hospital), joinedload(Incident.dispatcher)).get(inc.incident_id);
         socketio.emit('incident_update', res.to_dict(include_details=True), room='dashboard_updates')
         return jsonify(res.to_dict(include_details=True)),201
     except ValueError as ve:db.session.rollback();return jsonify(error=str(ve)),400
@@ -604,7 +607,7 @@ def post_incident_route():
 def handle_incident(incident_id):
     inc=Incident.query.options(joinedload(Incident.patient),joinedload(Incident.ambulance),joinedload(Incident.destination_hospital),joinedload(Incident.dispatcher)).get_or_404(incident_id)
     role=get_jwt().get('role')
-    uid=int(get_jwt_identity()) # FIX 2: Cast to int
+    uid=int(get_jwt_identity())
     allowed=False
     if role in [ROLES['SUPERVISOR'],ROLES['DISPATCHER']]:
         allowed=True
@@ -627,17 +630,17 @@ def handle_incident(incident_id):
         try:
             if role==ROLES['PARAMEDIC']:
                 ns=data.get('status')
-                if ns: inc.status=ns # Validation in model
-                inc.location_description=data.get('description',inc.location_description) # Paramedic can update description
-            else: # Supervisor/Dispatcher
+                if ns: inc.status=ns
+                inc.location_description=data.get('description',inc.location_description)
+            else:
                 aid=data.get('ambulance_id'); hid=data.get('hospital_id')
-                if aid == '': aid = None # Allow unassigning
-                if hid == '': hid = None # Allow unassigning
+                if aid == '': aid = None
+                if hid == '': hid = None
                 if aid is not None and not Ambulance.query.get(aid):return jsonify(error=f"Amb ID {aid} not found"),404
                 if hid is not None and not Hospital.query.get(hid):return jsonify(error=f"Hosp ID {hid} not found"),404
                 inc.ambulance_id=aid; inc.destination_hospital_id=hid; inc.location_description=data.get('description',inc.location_description); ns=data.get('status')
                 if ns: inc.status=ns
-            db.session.commit() # Triggers 'set' event
+            db.session.commit()
             res=Incident.query.options(joinedload(Incident.patient), joinedload(Incident.ambulance), joinedload(Incident.destination_hospital), joinedload(Incident.dispatcher)).get(incident_id)
             return jsonify(res.to_dict(include_details=True)),200
         except ValueError as ve:db.session.rollback();return jsonify(error=str(ve)),400
@@ -654,12 +657,11 @@ def handle_incident(incident_id):
         return del_inc()
 
 
-## -- Patient Vitals API Routes -- ##
 @app.route('/api/incidents/<int:incident_id>/vitals', methods=['GET', 'POST'])
 @jwt_required()
 def handle_incident_vitals(incident_id):
     inc=Incident.query.get_or_404(incident_id); role=get_jwt().get('role');
-    uid=int(get_jwt_identity()) # FIX 2: Cast to int
+    uid=int(get_jwt_identity())
     if request.method=='POST':
         allowed=False
         if role==ROLES['SUPERVISOR']: allowed=True
@@ -682,7 +684,6 @@ def handle_incident_vitals(incident_id):
             return jsonify(v.to_dict()),201
         except ValueError as ve:db.session.rollback();return jsonify(error=str(ve)),400
         except Exception as e:db.session.rollback();app.logger.error(f"Err add vitals I{incident_id}: {e}");return jsonify(error="Internal error"),500
-    # GET
     allowed_view=False
     if role in [ROLES['SUPERVISOR'],ROLES['DISPATCHER']]: allowed_view=True
     elif role==ROLES['PARAMEDIC']:
@@ -698,7 +699,6 @@ def handle_incident_vitals(incident_id):
     except Exception as e:app.logger.error(f"Err get vitals I{incident_id}: {e}");return jsonify(error="Internal error"),500
 
 
-## -- Incident Message API Routes -- ##
 @app.route('/api/incidents/<int:incident_id>/messages', methods=['GET', 'POST'])
 @jwt_required()
 def handle_incident_messages(incident_id):
@@ -707,7 +707,6 @@ def handle_incident_messages(incident_id):
     user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
-    # Authorization check: Only users involved in the incident or supervisors/dispatchers can access
     allowed_access = False
     if role in [ROLES['SUPERVISOR'], ROLES['DISPATCHER']]:
         allowed_access = True
@@ -736,10 +735,9 @@ def handle_incident_messages(incident_id):
             db.session.add(new_message)
             db.session.commit()
 
-            # Emit message to incident-specific room and dashboard_updates
             message_data = new_message.to_dict()
             socketio.emit('incident_message', message_data, room=f'incident_{incident_id}')
-            socketio.emit('incident_message', message_data, room='dashboard_updates') # For general overview
+            socketio.emit('incident_message', message_data, room='dashboard_updates')
 
             return jsonify(message_data), 201
         except Exception as e:
@@ -756,7 +754,6 @@ def handle_incident_messages(incident_id):
             return jsonify(error="Internal server error fetching messages"), 500
 
 
-## -- Staff API Routes -- ##
 @app.route('/api/staff', methods=['GET', 'POST'])
 @roles_required(ROLES['SUPERVISOR'])
 def handle_staff():
@@ -775,7 +772,6 @@ def handle_staff():
             return jsonify(res.to_dict()),201
         except ValueError as ve:db.session.rollback();return jsonify(error=str(ve)),400
         except Exception as e:db.session.rollback();app.logger.error(f"Err add staff: {e}");return jsonify(error="Internal error"),500
-    # GET
     try: ss=Staff.query.options(joinedload(Staff.user)).all(); return jsonify([s.to_dict() for s in ss]),200
     except Exception as e:app.logger.error(f"Err get staff: {e}");return jsonify(error="Internal error"),500
 
@@ -806,12 +802,11 @@ def handle_single_staff(staff_id):
             return jsonify(error="Internal error"),500
 
 
-## -- Ambulance Equipment API Routes -- ##
 @app.route('/api/ambulances/<int:ambulance_id>/equipment', methods=['GET', 'POST'])
 @jwt_required()
 def handle_ambulance_equipment(ambulance_id):
     amb=Ambulance.query.get_or_404(ambulance_id); role=get_jwt().get('role');
-    uid=int(get_jwt_identity()) # FIX 2: Cast to int
+    uid=int(get_jwt_identity())
     if request.method=='POST':
         allowed=False
         if role==ROLES['SUPERVISOR']:allowed=True
@@ -827,7 +822,6 @@ def handle_ambulance_equipment(ambulance_id):
             db.session.add(eq); db.session.commit(); return jsonify(eq.to_dict()),201
         except ValueError as ve:db.session.rollback();return jsonify(error=str(ve)),400
         except Exception as e:db.session.rollback();app.logger.error(f"Err add equip A{ambulance_id}: {e}");return jsonify(error="Internal error"),500
-    # GET
     if role not in [ROLES['SUPERVISOR'],ROLES['DISPATCHER'],ROLES['PARAMEDIC']]:return jsonify(error="Unauthorized"),403
     try: eqs=Equipment.query.filter_by(ambulance_id=ambulance_id).all(); return jsonify([e.to_dict() for e in eqs]),200
     except Exception as e:app.logger.error(f"Err get equip A{ambulance_id}: {e}");return jsonify(error="Internal error"),500
@@ -836,7 +830,7 @@ def handle_ambulance_equipment(ambulance_id):
 @roles_required(ROLES['SUPERVISOR'], ROLES['PARAMEDIC'])
 def handle_single_equipment(equipment_id):
     eq=Equipment.query.get_or_404(equipment_id); role=get_jwt().get('role');
-    uid=int(get_jwt_identity()) # FIX 2: Cast to int
+    uid=int(get_jwt_identity())
     if role==ROLES['PARAMEDIC']:
         sp=Staff.query.filter_by(user_id=uid).first()
         if not sp or sp.assigned_ambulance_id!=eq.ambulance_id: return jsonify(error="Paramedic can only manage equip on assigned amb."),403
@@ -844,8 +838,8 @@ def handle_single_equipment(equipment_id):
         data=request.get_json();
         if not data:return jsonify(error="Missing body"),400
         try:
-            eq.equipment_name=data.get('equipment_name',eq.equipment_name); # Allow supervisor to rename
-            eq.status=data.get('status',eq.status); # Validation in model
+            eq.equipment_name=data.get('equipment_name',eq.equipment_name);
+            eq.status=data.get('status',eq.status);
             db.session.commit(); return jsonify(eq.to_dict())
         except ValueError as ve:
             db.session.rollback()
@@ -860,12 +854,11 @@ def handle_single_equipment(equipment_id):
         except Exception as e:db.session.rollback();app.logger.error(f"Err delete equip {equipment_id}: {e}");return jsonify(error="Internal error"),500
 
 
-## -- Hospital Specialties API Routes -- ##
 @app.route('/api/hospitals/<int:hospital_id>/specialties', methods=['GET', 'POST'])
 @jwt_required()
 def handle_hospital_specialties(hospital_id):
     hosp=Hospital.query.get_or_404(hospital_id); role=get_jwt().get('role');
-    uid=int(get_jwt_identity()) # FIX 2: Cast to int
+    uid=int(get_jwt_identity())
     if request.method=='POST':
         allowed=False
         if role==ROLES['SUPERVISOR']:allowed=True
@@ -882,7 +875,6 @@ def handle_hospital_specialties(hospital_id):
             spec=HospitalSpecialties(hospital_id=hospital_id,specialty_name=data['specialty_name'],is_available=data.get('is_available',True))
             db.session.add(spec); db.session.commit(); return jsonify(spec.to_dict()),201
         except Exception as e:db.session.rollback();app.logger.error(f"Err add spec H{hospital_id}: {e}");return jsonify(error="Internal error"),500
-    # GET
     if role not in [ROLES['SUPERVISOR'],ROLES['DISPATCHER'],ROLES['HOSPITAL_STAFF'],ROLES['PARAMEDIC']]:return jsonify(error="Unauthorized"),403
     try: specs=HospitalSpecialties.query.filter_by(hospital_id=hospital_id).all(); return jsonify([s.to_dict() for s in specs]),200
     except Exception as e:app.logger.error(f"Err get spec H{hospital_id}: {e}");return jsonify(error="Internal error"),500
@@ -891,7 +883,7 @@ def handle_hospital_specialties(hospital_id):
 @jwt_required()
 def handle_single_specialty(specialty_id):
     spec=HospitalSpecialties.query.get_or_404(specialty_id); role=get_jwt().get('role');
-    uid=int(get_jwt_identity()) # FIX 2: Cast to int
+    uid=int(get_jwt_identity())
     allowed=False
     if role==ROLES['SUPERVISOR']:allowed=True
     elif role==ROLES['HOSPITAL_STAFF']:
@@ -911,7 +903,7 @@ def handle_single_specialty(specialty_id):
                  spec.is_available = data['is_available']
             elif 'is_available' in data:
                  return jsonify(error="is_available must be true or false"), 400
-            else: pass # No change if not provided
+            else: pass
             db.session.commit(); return jsonify(spec.to_dict())
         except Exception as e:db.session.rollback();app.logger.error(f"Err update spec {specialty_id}: {e}");return jsonify(error="Internal error"),500
     if request.method=='DELETE':
@@ -920,9 +912,8 @@ def handle_single_specialty(specialty_id):
         except Exception as e:db.session.rollback();app.logger.error(f"Err delete spec {specialty_id}: {e}");return jsonify(error="Internal error"),500
 
 
-## -- Simulated Dispatch Suggestion Route -- ##
 def calculate_distance(lat1, lon1, lat2, lon2):
-    R=6371; # Earth radius in km
+    R=6371;
     try:
         la1=math.radians(float(lat1)); lo1=math.radians(float(lon1))
         la2=math.radians(float(lat2)); lo2=math.radians(float(lon2))
@@ -939,16 +930,12 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 def suggest_ambulance():
     data = request.get_json()
     incident_lat = data.get('latitude'); incident_lon = data.get('longitude')
-    required_equipment = data.get('required_equipment') # NEW: Required equipment for the incident
+    required_equipment = data.get('required_equipment')
     if incident_lat is None or incident_lon is None: return jsonify(error="Missing location"), 400
     try:
-        # Start with all available ambulances
         query = Ambulance.query.filter_by(status='available')
 
-        # Filter by required equipment if specified
         if required_equipment:
-            # Assuming specialty_equipment is stored as a comma-separated string
-            # This is a basic check; a more robust solution might involve a dedicated table
             query = query.filter(Ambulance.specialty_equipment.ilike(f'%{{required_equipment}}%'))
 
         available_ambulances = query.all()
@@ -960,16 +947,11 @@ def suggest_ambulance():
             if amb.current_lat is not None and amb.current_lon is not None:
                 distance = calculate_distance(incident_lat, incident_lon, amb.current_lat, amb.current_lon)
                 
-                # --- Placeholder for advanced routing logic (e.g., traffic data) ---
-                # if external_routing_api_available:
-                #     traffic_adjusted_distance = get_traffic_adjusted_distance(incident_lat, incident_lon, amb.current_lat, amb.current_lon)
-                #     distance = traffic_adjusted_distance
+                
 
                 if distance < min_distance: min_distance = distance; nearest_ambulance = amb
         
-        # --- Placeholder for considering hospital load/specialties ---
-        # If a destination hospital is suggested/required, check its current ER occupancy and specialties
-        # For example, filter out hospitals that are at full capacity or don't have required specialties
+        
 
         if nearest_ambulance:
             avg_speed_kmh = 40; estimated_time_hours = min_distance / avg_speed_kmh if avg_speed_kmh > 0 else 0
@@ -981,20 +963,17 @@ def suggest_ambulance():
         else: return jsonify(suggestion=None, message="No available ambulances with location found matching criteria."), 200
     except Exception as e: app.logger.error(f"Error suggesting ambulance: {e}"); return jsonify(error="Internal error"), 500
 
-## -- ** NEW: Database Seeding Route ** -- ##
 @app.route('/api/seed-manipal-data', methods=['POST'])
-@roles_required(ROLES['SUPERVISOR']) # Only supervisors can seed data
+@roles_required(ROLES['SUPERVISOR'])
 def seed_manipal_data():
     app.logger.info("Attempting to seed Manipal data...")
     try:
-        # --- Manipal Hospitals Data ---
         manipal_hospitals = [
             {'name': 'Kasturba Hospital, Manipal', 'address': 'Madhav Nagar, Manipal', 'latitude': 13.3512, 'longitude': 74.7819, 'er_capacity': 100, 'er_current_occupancy': 20},
             {'name': 'Dr. T.M.A. Pai Hospital, Udupi', 'address': 'Kunjibettu, Udupi', 'latitude': 13.3432, 'longitude': 74.7570, 'er_capacity': 50, 'er_current_occupancy': 10},
             {'name': 'Adarsh Hospital, Udupi', 'address': 'Kunjibettu, Udupi', 'latitude': 13.3445, 'longitude': 74.7585, 'er_capacity': 30, 'er_current_occupancy': 5},
         ]
         
-        # --- Default Ambulance Data ---
         default_ambulances = [
             {'license_plate': 'KA-20-G-1001', 'status': 'available', 'current_lat': 13.3520, 'current_lon': 74.7830},
             {'license_plate': 'KA-19-F-4502', 'status': 'available', 'current_lat': 13.3450, 'current_lon': 74.7600}
@@ -1003,7 +982,6 @@ def seed_manipal_data():
         hospitals_added = 0
         ambulances_added = 0
 
-        # Seed Hospitals (Idempotent Check)
         for hosp_data in manipal_hospitals:
             existing = Hospital.query.filter_by(name=hosp_data['name']).first()
             if not existing:
@@ -1012,7 +990,6 @@ def seed_manipal_data():
                 hospitals_added += 1
                 app.logger.info(f"Adding hospital: {hosp_data['name']}")
 
-        # Seed Ambulances (Idempotent Check)
         for amb_data in default_ambulances:
             existing = Ambulance.query.filter_by(license_plate=amb_data['license_plate']).first()
             if not existing:
@@ -1023,11 +1000,10 @@ def seed_manipal_data():
 
         db.session.commit()
         
-        # Emit updates
         if hospitals_added > 0:
-            socketio.emit('hospital_update', {}, room='dashboard_updates') # Send generic update signal
+            socketio.emit('hospital_update', {}, room='dashboard_updates')
         if ambulances_added > 0:
-            socketio.emit('ambulance_update', {}, room='dashboard_updates') # Send generic update signal
+            socketio.emit('ambulance_update', {}, room='dashboard_updates')
 
         message = f"Seeding complete. Added {hospitals_added} new hospitals and {ambulances_added} new ambulances."
         app.logger.info(message)
@@ -1039,25 +1015,22 @@ def seed_manipal_data():
         return jsonify(error=f"Internal error during seeding: {str(e)}"), 500
 
 
-## -- WebSocket Event Handlers -- ##
 
 @socketio.on('connect')
 def handle_connect():
     sid = request.sid
     app.logger.info(f"Client connected: SID {sid}")
-    # --- FIX: Removed all JWT verification from connect event ---
     join_room('dashboard_updates')
     app.logger.info(f"Client {sid} joined room 'dashboard_updates'")
 
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    app.logger.info(f"Client disconnected: {request.sid}") # Use app.logger
+    app.logger.info(f"Client disconnected: {request.sid}")
 
 @socketio.on('join_incident_room')
 def handle_join_incident_room(data):
     try:
-        # --- FIX: Removed JWT verification from this handler ---
         incident_id = data.get('incident_id')
         if not incident_id:
              app.logger.warning(f"Join incident room failed: no incident_id. SID: {request.sid}")
@@ -1066,7 +1039,7 @@ def handle_join_incident_room(data):
         join_room(room_name)
         app.logger.info(f"Client {request.sid} joined room {room_name}")
     except Exception as e:
-        app.logger.error(f"Error joining incident room for SID {request.sid}: {e}") # Use app.logger
+        app.logger.error(f"Error joining incident room for SID {request.sid}: {e}")
 
 @socketio.on('leave_incident_room')
 def handle_leave_incident_room(data):
@@ -1075,9 +1048,9 @@ def handle_leave_incident_room(data):
          if not incident_id: return
          room_name = f'incident_{incident_id}'
          leave_room(room_name)
-         app.logger.info(f"Client {request.sid} left room {room_name}") # Use app.logger
+         app.logger.info(f"Client {request.sid} left room {room_name}")
      except Exception as e:
-         app.logger.error(f"Error leaving incident room for SID {request.sid}: {e}") # Use app.logger
+         app.logger.error(f"Error leaving incident room for SID {request.sid}: {e}")
 
 
 if __name__ == '__main__':
@@ -1085,6 +1058,5 @@ if __name__ == '__main__':
         try: db.create_all(); print("DB tables checked/created.")
         except Exception as e: print(f"Error during db.create_all(): {e}")
     print("Starting Flask-SocketIO server...")
-    # Use SocketIO's run method, ensure eventlet is installed
     socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=True)
 

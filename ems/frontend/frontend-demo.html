@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMS Frontend Demo</title>
+
+    <!--
+        COMMENT: External Libraries
+        - Tailwind CSS: A utility-first CSS framework for rapid UI development.
+        - Ionicons: A library of premium icons.
+        - Leaflet.js: An open-source JavaScript library for interactive maps.
+        - Socket.IO: A library for real-time, bidirectional event-based communication.
+    -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+
+    <!--
+        COMMENT: Custom Styles
+        This section contains custom CSS for scrollbars, modals, map markers, and notification banners.
+    -->
+    <style>
+        /* Custom scrollbar styles for a better look and feel */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #a8a8a8; }
+        .dark ::-webkit-scrollbar-track { background: #374151; }
+        .dark ::-webkit-scrollbar-thumb { background: #6b7280; }
+
+        /* Styles for modal dialogs */
+        .modal { display: none; opacity: 0; transition: opacity 0.3s ease-out; }
+        .modal.active { display: flex; opacity: 1; }
+
+        /* Styles for the map container */
+        #map { height: 45vh; width: 100%; }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-950">
+
+    <!--
+        COMMENT: Login Section
+        This is the initial view for the user to log in. It contains a form with username and password fields.
+    -->
+    <div id="login-section" class="flex items-center justify-center min-h-screen">
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-sm">
+            <h1 class="text-2xl font-bold text-center mb-6">EMS Login</h1>
+            <form id="login-form">
+                <input type="text" id="username" placeholder="Username" required class="w-full px-4 py-3 border rounded-lg">
+                <input type="password" id="password" placeholder="Password" required class="w-full px-4 py-3 border rounded-lg mt-4">
+                <button type="submit" class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg mt-6">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!--
+        COMMENT: Dashboard Section
+        This is the main view after a user logs in. It's a flex container with a sidebar and a main content area.
+    -->
+    <div id="dashboard-section" class="flex h-screen overflow-hidden" style="display: none;">
+        <!-- Sidebar -->
+        <aside class="w-72 bg-white dark:bg-gray-900 shadow-md flex flex-col">
+            <div class="p-5 border-b">
+                <h1 class="text-xl font-bold">EMS Dashboard</h1>
+            </div>
+            <div id="ambulance-section" class="p-5 flex-1 overflow-y-auto">
+                <h2 class="text-sm font-semibold text-gray-500 uppercase">Ambulance Units</h2>
+                <div id="ambulance-list" class="space-y-3 mt-4">
+                    <!-- Ambulance items will be dynamically inserted here -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <header class="bg-white dark:bg-gray-900 border-b p-4">
+                <h1 id="dashboard-title" class="text-2xl font-bold">Dashboard</h1>
+            </header>
+            <div class="flex-1 p-6 overflow-y-auto">
+                <!-- Map Container -->
+                <div id="map"></div>
+
+                <!-- Incident Grid -->
+                <div id="incident-section" class="mt-6">
+                    <h2 class="text-2xl font-semibold">Incidents</h2>
+                    <div id="incident-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+                        <!-- Incident cards will be dynamically inserted here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!--
+        COMMENT: Incident Modal
+        This modal is used to create a new incident. It includes fields for patient information, location, and description.
+    -->
+    <div id="incident-modal" class="modal fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md">
+            <h2 class="text-2xl font-bold mb-6">Log New Incident</h2>
+            <form id="incident-form">
+                <input type="text" id="patient-name" placeholder="Patient Name (Optional)" class="w-full px-4 py-3 border rounded-lg">
+                <div class="flex space-x-4 mt-4">
+                    <input type="text" id="latitude" placeholder="Latitude" required class="w-1/2 px-4 py-3 border rounded-lg">
+                    <input type="text" id="longitude" placeholder="Longitude" required class="w-1/2 px-4 py-3 border rounded-lg">
+                </div>
+                <textarea id="description" placeholder="Description" rows="3" class="w-full px-4 py-3 border rounded-lg mt-4"></textarea>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" id="cancel-incident" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg">Cancel</button>
+                    <button type="submit" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg">Create Incident</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!--
+        COMMENT: JavaScript Logic
+        This section contains the core frontend logic, including API calls, WebSocket handling, and UI rendering.
+    -->
+    <script>
+        // Global variables
+        const API_URL = 'http://127.0.0.1:5000/api';
+        let socket = null;
+
+        // DOMContentLoaded: Entry point for the application
+        document.addEventListener('DOMContentLoaded', () => {
+            // Attach event listeners to UI elements
+            loginForm.addEventListener('submit', handleLogin);
+            logoutBtn.addEventListener('click', handleLogout);
+            newIncidentBtn.addEventListener('click', showIncidentModal);
+
+            // Check if the user is already logged in
+            checkLoginStatus();
+        });
+
+        // handleLogin: Authenticates the user
+        async function handleLogin(e) {
+            e.preventDefault();
+            const username = usernameInput.value;
+            const password = passwordInput.value;
+
+            try {
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+                localStorage.setItem('ems_token', data.access_token);
+                showDashboard();
+            } catch (error) {
+                console.error('Login failed:', error);
+            }
+        }
+
+        // connectWebSocket: Establishes a WebSocket connection
+        function connectWebSocket() {
+            socket = io(SOCKET_URL);
+
+            socket.on('connect', () => {
+                console.log('WebSocket connected');
+            });
+
+            socket.on('ambulance_update', (data) => {
+                console.log('Ambulance update received:', data);
+                // Logic to update the ambulance UI
+            });
+
+            socket.on('incident_update', (data) => {
+                console.log('Incident update received:', data);
+                // Logic to update the incident UI
+            });
+        }
+
+        // renderAmbulances: Renders the list of ambulances
+        function renderAmbulances(ambulances) {
+            const ambulanceList = document.getElementById('ambulance-list');
+            ambulanceList.innerHTML = '';
+            ambulances.forEach(amb => {
+                const div = document.createElement('div');
+                div.className = 'bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border';
+                div.innerHTML = `<div class="font-semibold">${amb.license_plate}</div><div class="text-sm">${amb.status}</div>`;
+                ambulanceList.appendChild(div);
+            });
+        }
+    </script>
+
+</body>
+</html>
